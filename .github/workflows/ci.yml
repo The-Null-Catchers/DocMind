@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   api:
@@ -50,15 +51,19 @@ jobs:
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - name: Generate native platform shells
-        run: flutter create . --platforms=android,ios --org com.docmind --project-name docmind
+        run: |
+          flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
+          rm -f test/widget_test.dart
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build apk --debug
-      - run: flutter build appbundle --debug
+      - run: flutter build apk --release --build-number=${{ github.run_number }}
+      - run: flutter build appbundle --release --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
-          name: docmind-android-debug
+          name: docmind-android-release-${{ github.run_number }}
+          if-no-files-found: error
+          retention-days: 14
           path: |
-            apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
-            apps/mobile/build/app/outputs/bundle/debug/app-debug.aab
+            apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+            apps/mobile/build/app/outputs/bundle/release/app-release.aab

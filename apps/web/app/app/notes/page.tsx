@@ -1,0 +1,1 @@
+export default function Notes(){return <div className="p-8"><h1 className="text-2xl font-semibold">Notes</h1><p className="mt-2 text-sm text-ink/50">Markdown notes with citation-linked source blocks and AI-assisted transformations.</p></div>}

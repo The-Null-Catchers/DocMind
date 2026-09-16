@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.env
+
+# Node
+node_modules/
+.next/
+out/
+coverage/
+
+# Flutter/Dart
+.dart_tool/
+build/
+.packages
+.flutter-plugins*
+
+# IDE/OS
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime
+storage/
+*.sqlite3
+*.db
+
+*.tsbuildinfo

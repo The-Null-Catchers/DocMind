@@ -1,0 +1,13 @@
+"use client";
+
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ArrowUp, Copy, RefreshCcw, Square, Sparkles } from "lucide-react";
+
+type Citation = { ordinal:number; document_name:string; page_number:number|null; source_excerpt:string; deep_link:string };
+export function ChatPanel() {
+  const [query,setQuery]=useState("");
+  const citations:Citation[]=[{ordinal:1,document_name:"Neural Retrieval Systems.pdf",page_number:31,source_excerpt:"Hybrid retrieval combines lexical and semantic signals before reranking…",deep_link:"?page=31&chunk=demo"}];
+  return <section className="flex h-full min-h-0 flex-col bg-panel"><div className="flex h-12 items-center gap-2 border-b px-4"><div className="grid h-7 w-7 place-items-center rounded-lg bg-accent/10 text-accent"><Sparkles size={14}/></div><div><p className="text-sm font-medium">Ask DocMind</p><p className="text-[10px] text-ink/45">Grounded in 1 document</p></div></div><div className="min-h-0 flex-1 space-y-5 overflow-auto p-4"><div className="ms-auto max-w-[88%] rounded-2xl rounded-ee-md bg-ink px-4 py-3 text-sm leading-6 text-panel">How does the report combine retrieval methods?</div><article className="max-w-[94%] text-sm leading-7"><ReactMarkdown remarkPlugins={[remarkGfm]}>The report uses **hybrid retrieval**, combining lexical and semantic candidates before a reranking stage. This is intended to improve recall without giving up exact-term precision. [C1]</ReactMarkdown><div className="mt-3 flex gap-1"><button className="rounded-lg p-1.5 text-ink/45 hover:bg-muted"><Copy size={14}/></button><button className="rounded-lg p-1.5 text-ink/45 hover:bg-muted"><RefreshCcw size={14}/></button></div><div className="mt-4 rounded-xl border p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Source 1 · Page 31</p><p className="mt-1 line-clamp-3 text-xs leading-5 text-ink/60">{citations[0].source_excerpt}</p><button className="mt-2 text-xs font-medium text-accent">Open source →</button></div></article></div><div className="border-t p-3"><div className="rounded-2xl border bg-muted/25 p-2 focus-within:ring-2 focus-within:ring-accent/30"><textarea value={query} onChange={e=>setQuery(e.target.value)} rows={3} placeholder="Ask about this document…" className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none"/><div className="flex items-center justify-between"><span className="px-2 text-[10px] text-ink/40">Answers include verified document citations</span><button className="grid h-8 w-8 place-items-center rounded-xl bg-ink text-panel"><ArrowUp size={15}/></button></div></div></div></section>;
+}

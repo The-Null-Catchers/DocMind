@@ -1,0 +1,1 @@
+export default function Quizzes(){return <div className="p-8"><h1 className="text-2xl font-semibold">Quizzes</h1><p className="mt-2 text-sm text-ink/50">Generate cited quizzes by topic, pages, difficulty, language, or collection.</p></div>}

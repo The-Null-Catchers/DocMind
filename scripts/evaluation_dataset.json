@@ -1,0 +1,5 @@
+[
+  {"document":"retrieval.txt","page":1,"text":"Project Cedar launch date: 14 October 2026. The project studies hybrid retrieval quality.","question":"When is Project Cedar launching?","expected_page":1},
+  {"document":"ocr.txt","page":2,"text":"Arabic OCR benchmark accuracy: 93 percent on the synthetic evaluation set.","question":"What accuracy did the OCR benchmark report?","expected_page":2},
+  {"document":"security.txt","page":4,"text":"Workspace isolation requires every retrieval query to include the authorized workspace identifier.","question":"What does workspace isolation require for retrieval?","expected_page":4}
+]

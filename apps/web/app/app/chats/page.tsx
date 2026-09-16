@@ -1,0 +1,1 @@
+export default function Chats(){return <div className="p-8"><h1 className="text-2xl font-semibold">Chats</h1><p className="mt-2 text-sm text-ink/50">Pinned and recent grounded conversations across documents, folders, collections, and workspaces.</p></div>}

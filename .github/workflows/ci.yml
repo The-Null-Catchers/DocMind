@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: services/api}}
+    env:
+      DATABASE_URL: sqlite:///./ci.sqlite3
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_DIR: /tmp/docmind-storage
+      APP_SECRET: ci-only-secret
+      LLM_PROVIDER: mock
+      EMBEDDING_PROVIDER: hash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -e '.[dev]'
+      - run: python -m compileall -q app
+      - run: ruff check app tests
+      - run: mypy app --ignore-missing-imports
+        continue-on-error: true
+      - run: pytest
+      - name: RAG evaluation
+        working-directory: ${{ github.workspace }}
+        run: python scripts/evaluate_rag.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: apps/web}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: 'npm', cache-dependency-path: apps/web/package.json}
+      - run: npm install
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  flutter:
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: apps/mobile}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - name: Generate native platform shells
+        run: flutter create . --platforms=android,ios --org com.docmind --project-name docmind
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --debug
+      - run: flutter build appbundle --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docmind-android-debug
+          path: |
+            apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+            apps/mobile/build/app/outputs/bundle/debug/app-debug.aab

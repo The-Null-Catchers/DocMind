@@ -61,10 +61,10 @@ async function request(path: string, init: RequestInit, retried: boolean): Promi
   return response;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiResponse(path: string, init: RequestInit = {}): Promise<Response> {
   const response = await request(path, init, false);
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ApiError;
+    const body = (await response.clone().json().catch(() => ({}))) as ApiError;
     const detail = body.detail;
     const message =
       typeof detail === "string"
@@ -74,8 +74,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
           : `Request failed (${response.status})`;
     throw new Error(message);
   }
+  return response;
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await apiResponse(path, init);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function apiBlob(path: string): Promise<Blob> {
+  const response = await apiResponse(path, { headers: { accept: "*/*" } });
+  return response.blob();
 }
 
 export function storeSession(result: AuthResponse) {

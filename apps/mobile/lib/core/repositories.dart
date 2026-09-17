@@ -160,6 +160,11 @@ class ConversationRepository {
     await _api.dio.patch('/conversations/$conversationId', data: {'title': title});
   }
 
+  Future<Map<String, dynamic>> updateDocuments(String conversationId, List<String> documentIds) async {
+    final response = await _api.dio.patch('/conversations/$conversationId', data: {'document_ids': documentIds});
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   Future<void> delete(String conversationId) async {
     await _api.dio.delete('/conversations/$conversationId');
     await _cache.clear('conversation_messages_$conversationId');

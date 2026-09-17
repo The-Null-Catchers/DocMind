@@ -150,7 +150,7 @@ class ConversationRepository {
     if (body == null) throw StateError('Empty streaming response');
 
     var event = 'message';
-    await for (final line in body.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+    await for (final line in body.stream.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter())) {
       if (line.startsWith('event:')) {
         event = line.substring(6).trim();
       } else if (line.startsWith('data:')) {
@@ -211,7 +211,6 @@ class StudyRepository {
     }
   }
 
-  /// Returns true when the review reached the server, false when it was safely queued offline.
   Future<bool> reviewCard(String workspaceId, String cardId, String rating) async {
     try {
       await _api.dio.post('/flashcards/$cardId/review', data: {'rating': rating});

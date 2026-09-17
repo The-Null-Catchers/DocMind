@@ -104,9 +104,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             IconButton(onPressed: _createWorkspace, tooltip: 'Create workspace', icon: const Icon(Icons.add_business_outlined)),
             PopupMenuButton<String>(
               onSelected: (value) async {
+                if (value == 'account') context.push('/account');
                 if (value == 'logout') await ref.read(authControllerProvider.notifier).logout();
               },
-              itemBuilder: (_) => const [PopupMenuItem(value: 'logout', child: Text('Sign out'))],
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'account', child: ListTile(leading: Icon(Icons.manage_accounts_outlined), title: Text('Account & devices'))),
+                PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout), title: Text('Sign out'))),
+              ],
               icon: const Icon(Icons.account_circle_outlined),
             ),
           ],

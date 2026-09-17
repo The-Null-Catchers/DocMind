@@ -141,6 +141,42 @@ def notes(workspace_id: str, user: User = Depends(get_current_user), db: Session
     return [{"id": n.id, "title": n.title, "content_markdown": n.content_markdown, "source_links": n.source_links, "updated_at": n.updated_at} for n in rows]
 
 
+@router.patch("/notes/{note_id}")
+def update_note(note_id: str, payload: dict, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    note = db.get(Note, note_id)
+    if not note or note.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Note not found")
+    require_workspace_role(db, note.workspace_id, user.id, "editor")
+    if "title" in payload:
+        title = str(payload["title"]).strip()
+        if not title or len(title) > 300:
+            raise HTTPException(status_code=422, detail="Title must be between 1 and 300 characters")
+        note.title = title
+    if "content_markdown" in payload:
+        content = str(payload["content_markdown"])
+        if len(content) > 200000:
+            raise HTTPException(status_code=422, detail="Note content is too large")
+        note.content_markdown = content
+    db.commit()
+    return {
+        "id": note.id,
+        "title": note.title,
+        "content_markdown": note.content_markdown,
+        "source_links": note.source_links,
+        "updated_at": note.updated_at,
+    }
+
+
+@router.delete("/notes/{note_id}", status_code=204)
+def delete_note(note_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
+    note = db.get(Note, note_id)
+    if not note or note.user_id != user.id:
+        return
+    require_workspace_role(db, note.workspace_id, user.id, "editor")
+    db.delete(note)
+    db.commit()
+
+
 @router.post("/saved-prompts", status_code=201)
 def create_prompt(payload: PromptPayload, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     if payload.workspace_id:

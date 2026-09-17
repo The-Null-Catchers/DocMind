@@ -76,25 +76,24 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       _showMessage('Create a workspace before uploading documents.');
       return;
     }
-    final result = await FilePicker.pickFiles(allowMultiple: true, withData: true);
-    if (result == null || result.files.isEmpty) return;
+    final files = await FilePicker.pickFiles();
+    if (files.isEmpty) return;
 
     setState(() {
       _uploading = true;
       _uploadProgress = 0;
     });
     try {
-      for (var index = 0; index < result.files.length; index++) {
-        final file = result.files[index];
-        final bytes = file.bytes;
-        if (bytes == null) throw StateError('Unable to read ${file.name}');
+      for (var index = 0; index < files.length; index++) {
+        final file = files[index];
+        final bytes = await file.readAsBytes();
         await ref.read(documentRepositoryProvider).upload(
           workspaceId: workspaceId,
           filename: file.name,
           bytes: bytes,
           onProgress: (sent, total) {
             if (!mounted || total <= 0) return;
-            setState(() => _uploadProgress = (index + sent / total) / result.files.length);
+            setState(() => _uploadProgress = (index + sent / total) / files.length);
           },
         );
       }

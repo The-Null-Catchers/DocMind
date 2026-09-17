@@ -7,6 +7,7 @@ import '../features/auth/account_screen.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/password_recovery_screen.dart';
+import '../features/documents/document_reader_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/library/library_screen.dart';
@@ -37,6 +38,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (_, __) => const LoginScreen(register: true)),
       GoRoute(path: '/forgot-password', builder: (_, __) => const PasswordRecoveryScreen()),
       GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
+      GoRoute(
+        path: '/documents/:id',
+        builder: (_, state) => DocumentReaderScreen(
+          documentId: state.pathParameters['id']!,
+          initialPage: int.tryParse(state.uri.queryParameters['page'] ?? '') ?? 1,
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _Shell(shell: shell),
         branches: [

@@ -315,7 +315,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 "model": f"models/{model_name}",
                 "content": {"parts": [{"text": text}]},
                 "embedContentConfig": {
-                    "taskType": "RETRIEVAL_DOCUMENT",
+                    "taskType": "SEMANTIC_SIMILARITY",
                     "outputDimensionality": self.dimension,
                 },
             }

@@ -4,7 +4,7 @@ import asyncio
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
@@ -48,14 +48,30 @@ def create_conversation(payload: ConversationCreate, user: User = Depends(get_cu
     for document_id in document_ids:
         db.add(ConversationDocument(conversation_id=conversation.id, document_id=document_id))
     db.commit()
-    return {"id": conversation.id, "title": conversation.title, "workspace_id": conversation.workspace_id, "pinned": conversation.pinned}
+    return {"id": conversation.id, "title": conversation.title, "workspace_id": conversation.workspace_id, "pinned": conversation.pinned, "document_ids": document_ids}
 
 
 @router.get("")
 def list_conversations(workspace_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[dict]:
     require_workspace_role(db, workspace_id, user.id, "viewer")
     rows = db.scalars(select(Conversation).where(Conversation.workspace_id == workspace_id, Conversation.user_id == user.id).order_by(Conversation.pinned.desc(), Conversation.updated_at.desc()).limit(100)).all()
-    return [{"id": c.id, "title": c.title, "pinned": c.pinned, "updated_at": c.updated_at} for c in rows]
+    conversation_ids = [row.id for row in rows]
+    documents_by_conversation: dict[str, list[str]] = {conversation_id: [] for conversation_id in conversation_ids}
+    if conversation_ids:
+        links = db.execute(
+            select(ConversationDocument.conversation_id, ConversationDocument.document_id).where(
+                ConversationDocument.conversation_id.in_(conversation_ids)
+            )
+        ).all()
+        for conversation_id, document_id in links:
+            documents_by_conversation[conversation_id].append(document_id)
+    return [{
+        "id": row.id,
+        "title": row.title,
+        "pinned": row.pinned,
+        "updated_at": row.updated_at,
+        "document_ids": documents_by_conversation.get(row.id, []),
+    } for row in rows]
 
 
 @router.get("/{conversation_id}/messages")
@@ -95,8 +111,26 @@ def update_conversation(conversation_id: str, payload: dict, user: User = Depend
         conversation.title = title
     if "pinned" in payload:
         conversation.pinned = bool(payload["pinned"])
+    if "document_ids" in payload:
+        raw_document_ids = payload["document_ids"]
+        if not isinstance(raw_document_ids, list) or not all(isinstance(value, str) for value in raw_document_ids):
+            raise HTTPException(status_code=422, detail="document_ids must be a list of document IDs")
+        document_ids = _validate_documents(db, conversation.workspace_id, raw_document_ids)
+        db.execute(delete(ConversationDocument).where(ConversationDocument.conversation_id == conversation.id))
+        for document_id in document_ids:
+            db.add(ConversationDocument(conversation_id=conversation.id, document_id=document_id))
+    else:
+        document_ids = list(db.scalars(select(ConversationDocument.document_id).where(
+            ConversationDocument.conversation_id == conversation.id
+        )).all())
     db.commit()
-    return {"id": conversation.id, "title": conversation.title, "pinned": conversation.pinned, "updated_at": conversation.updated_at}
+    return {
+        "id": conversation.id,
+        "title": conversation.title,
+        "pinned": conversation.pinned,
+        "updated_at": conversation.updated_at,
+        "document_ids": document_ids,
+    }
 
 
 @router.delete("/{conversation_id}", status_code=204)

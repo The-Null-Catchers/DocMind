@@ -90,7 +90,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Future<void> _create(String type) async {
     final workspaceId = await _workspace();
-    if (workspaceId == null) return;
+    if (!mounted || workspaceId == null) return;
     final repo = ref.read(libraryRepositoryProvider);
     try {
       if (type == 'collection') {

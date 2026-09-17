@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
 import '../../core/repositories.dart';
@@ -212,6 +213,7 @@ class _DocumentCard extends StatelessWidget {
     final failed = status == 'failed';
     return Card(
       child: ListTile(
+        onTap: ready ? () => context.push('/documents/${document['id']}') : null,
         leading: Icon(ready ? Icons.description : failed ? Icons.error_outline : Icons.sync),
         title: Text(document['title']?.toString() ?? document['original_filename']?.toString() ?? 'Document'),
         subtitle: Text(ready ? 'Ready${pages == null ? '' : ' · $pages pages'}' : failed ? 'Processing failed' : '${status.toUpperCase()} · $progress%'),

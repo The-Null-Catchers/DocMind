@@ -52,6 +52,8 @@ class ApiClient {
   final FlutterSecureStorage _storage;
   Future<bool>? _refreshInFlight;
 
+  Future<String?> accessToken() => _storage.read(key: 'access_token');
+
   Future<void> saveTokens(String access, String refresh) async {
     await _storage.write(key: 'access_token', value: access);
     await _storage.write(key: 'refresh_token', value: refresh);

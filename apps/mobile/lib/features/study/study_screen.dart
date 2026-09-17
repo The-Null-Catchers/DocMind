@@ -17,6 +17,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   List<Map<String, dynamic>> _quizzes = const [];
   List<Map<String, dynamic>> _notes = const [];
   bool _loading = true;
+  int _pendingReviews = 0;
   String? _error;
 
   @override
@@ -45,11 +46,13 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         repo.quizzes(workspaceId),
         repo.notes(workspaceId),
       ]);
+      final pending = await repo.pendingReviewCount(workspaceId);
       if (!mounted) return;
       setState(() {
         _cards = results[0];
         _quizzes = results[1];
         _notes = results[2];
+        _pendingReviews = pending;
         _loading = false;
         _error = null;
       });
@@ -63,7 +66,10 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   }
 
   Future<void> _reviewCard(Map<String, dynamic> card) async {
+    final workspaceId = ref.read(selectedWorkspaceProvider);
+    if (workspaceId == null) return;
     var revealed = false;
+    bool? synced;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -85,7 +91,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   runSpacing: 8,
                   children: ['again', 'hard', 'good', 'easy'].map((rating) => OutlinedButton(
                     onPressed: () async {
-                      await ref.read(studyRepositoryProvider).reviewCard(card['id'] as String, rating);
+                      synced = await ref.read(studyRepositoryProvider).reviewCard(workspaceId!, card['id'] as String, rating);
                       if (context.mounted) Navigator.pop(context);
                     },
                     child: Text(rating[0].toUpperCase() + rating.substring(1)),
@@ -97,6 +103,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
         );
       }),
     );
+    if (synced == false && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Review saved offline. It will sync automatically when connectivity returns.')));
+    }
     await _load();
   }
 
@@ -151,13 +160,23 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Study'),
-          actions: [IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))],
+          actions: [IconButton(onPressed: _load, tooltip: 'Refresh and sync', icon: const Icon(Icons.sync))],
           bottom: const TabBar(tabs: [Tab(text: 'Flashcards'), Tab(text: 'Quizzes'), Tab(text: 'Notes')]),
         ),
-        body: TabBarView(children: [
-          _CardsTab(cards: _cards, onReview: _reviewCard),
-          _QuizzesTab(quizzes: _quizzes, onOpen: _openQuiz),
-          _NotesTab(notes: _notes, onCreate: _createNote),
+        body: Column(children: [
+          if (_pendingReviews > 0)
+            MaterialBanner(
+              content: Text('$_pendingReviews flashcard review${_pendingReviews == 1 ? '' : 's'} waiting to sync.'),
+              leading: const Icon(Icons.cloud_upload_outlined),
+              actions: [TextButton(onPressed: _load, child: const Text('Sync'))],
+            ),
+          Expanded(
+            child: TabBarView(children: [
+              _CardsTab(cards: _cards, onReview: _reviewCard),
+              _QuizzesTab(quizzes: _quizzes, onOpen: _openQuiz),
+              _NotesTab(notes: _notes, onCreate: _createNote),
+            ]),
+          ),
         ]),
       ),
     );

@@ -133,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               )
             else if (_workspaces.isNotEmpty)
               DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 decoration: const InputDecoration(labelText: 'Active workspace'),
                 items: _workspaces.map((workspace) => DropdownMenuItem(value: workspace['id'] as String, child: Text(workspace['name'] as String))).toList(),
                 onChanged: _switchWorkspace,

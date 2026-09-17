@@ -34,7 +34,6 @@ class _DocumentReaderScreenState extends ConsumerState<DocumentReaderScreen> {
   @override
   void dispose() {
     _pdfController.removeListener(_onPdfChanged);
-    _pdfController.dispose();
     super.dispose();
   }
 
@@ -119,7 +118,7 @@ class _DocumentReaderScreenState extends ConsumerState<DocumentReaderScreen> {
             if (ocr) ...[
               const SizedBox(height: 4),
               Text(
-                confidence == null ? 'OCR used' : 'OCR used · confidence ' + (confidence as num).toStringAsFixed(2),
+                confidence == null ? 'OCR used' : 'OCR used · confidence ${(confidence as num).toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -162,7 +161,7 @@ class _DocumentReaderScreenState extends ConsumerState<DocumentReaderScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(onPressed: _currentPage <= 1 ? null : () => _goToPage(_currentPage - 1), icon: const Icon(Icons.chevron_left)),
-                  Text('Page $_currentPage' + (pageCount == null ? '' : ' / $pageCount')),
+                  Text('Page $_currentPage${pageCount == null ? '' : ' / $pageCount'}'),
                   IconButton(onPressed: pageCount != null && _currentPage >= pageCount ? null : () => _goToPage(_currentPage + 1), icon: const Icon(Icons.chevron_right)),
                   if (isPdf) ...[
                     const VerticalDivider(indent: 10, endIndent: 10),
@@ -180,7 +179,7 @@ class _DocumentReaderScreenState extends ConsumerState<DocumentReaderScreen> {
                     headers: headers,
                     controller: _pdfController,
                     initialPageNumber: _currentPage,
-                    params: const PdfViewerParams(enableTextSelection: true, margin: 8),
+                    params: const PdfViewerParams(margin: 8),
                   )
                 : _ExtractedDocumentView(
                     documentId: widget.documentId,

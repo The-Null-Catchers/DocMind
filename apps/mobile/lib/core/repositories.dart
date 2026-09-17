@@ -60,6 +60,31 @@ class DocumentRepository {
     }
   }
 
+  Future<Map<String, dynamic>> get(String documentId) async {
+    final response = await _api.dio.get('/documents/$documentId');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> page(String documentId, int pageNumber) async {
+    final response = await _api.dio.get('/documents/$documentId/pages/$pageNumber');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> downloadSource(String documentId) async {
+    final response = await _api.dio.get('/documents/$documentId/download-url');
+    final raw = (response.data as Map)['url'] as String;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return {'url': raw, 'headers': <String, String>{}};
+    }
+    final base = Uri.parse(_api.dio.options.baseUrl);
+    final url = base.replace(path: raw).toString();
+    final token = await _api.accessToken();
+    return {
+      'url': url,
+      'headers': token == null || token.isEmpty ? <String, String>{} : <String, String>{'Authorization': 'Bearer $token'},
+    };
+  }
+
   Future<Map<String, dynamic>> upload({
     required String workspaceId,
     required String filename,

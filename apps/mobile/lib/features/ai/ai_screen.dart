@@ -18,7 +18,9 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   final _scrollController = ScrollController();
   List<Map<String, dynamic>> _workspaces = const [];
   List<Map<String, dynamic>> _conversations = const [];
+  List<Map<String, dynamic>> _documents = const [];
   List<Map<String, dynamic>> _messages = const [];
+  Set<String> _selectedDocumentIds = <String>{};
   String? _conversationId;
   bool _loading = true;
   bool _sending = false;
@@ -50,13 +52,16 @@ class _AiScreenState extends ConsumerState<AiScreen> {
         ref.read(selectedWorkspaceProvider.notifier).state = workspaceId;
       }
       List<Map<String, dynamic>> conversations = const [];
+      List<Map<String, dynamic>> documents = const [];
       if (workspaceId != null) {
         conversations = await ref.read(conversationRepositoryProvider).list(workspaceId);
+        documents = await ref.read(documentRepositoryProvider).list(workspaceId);
       }
       if (!mounted) return;
       setState(() {
         _workspaces = workspaces;
         _conversations = conversations;
+        _documents = documents;
         _loading = false;
       });
       if (conversations.isNotEmpty) {
@@ -78,11 +83,17 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       _conversationId = null;
       _messages = const [];
       _conversations = const [];
+      _documents = const [];
+      _selectedDocumentIds = <String>{};
     });
     try {
       final conversations = await ref.read(conversationRepositoryProvider).list(workspaceId);
+      final documents = await ref.read(documentRepositoryProvider).list(workspaceId);
       if (!mounted) return;
-      setState(() => _conversations = conversations);
+      setState(() {
+        _conversations = conversations;
+        _documents = documents;
+      });
       if (conversations.isNotEmpty) await _selectConversation(conversations.first['id'] as String);
     } catch (_) {
       _showMessage('Could not switch workspace.');
@@ -96,12 +107,13 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       return;
     }
     try {
-      final created = await ref.read(conversationRepositoryProvider).create(workspaceId);
+      final created = await ref.read(conversationRepositoryProvider).create(workspaceId, documentIds: _selectedDocumentIds.toList());
       if (!mounted) return;
       setState(() {
         _conversations = [created, ..._conversations];
         _conversationId = created['id'] as String;
         _messages = const [];
+        _selectedDocumentIds = Set<String>.from((created['document_ids'] as List?)?.map((value) => value.toString()) ?? const <String>[]);
       });
     } catch (_) {
       _showMessage('Could not start a conversation.');
@@ -109,9 +121,11 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   }
 
   Future<void> _selectConversation(String id) async {
+    final conversation = _conversations.cast<Map<String, dynamic>?>().firstWhere((item) => item?['id'] == id, orElse: () => null);
     setState(() {
       _conversationId = id;
       _loading = true;
+      _selectedDocumentIds = Set<String>.from((conversation?['document_ids'] as List?)?.map((value) => value.toString()) ?? const <String>[]);
     });
     try {
       final messages = await ref.read(conversationRepositoryProvider).messages(id);
@@ -125,6 +139,69 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       _showMessage('Could not load conversation history.');
+    }
+  }
+
+
+  Future<void> _chooseDocuments() async {
+    if (_documents.isEmpty) {
+      _showMessage('No documents are available in this workspace yet.');
+      return;
+    }
+    final selected = Set<String>.from(_selectedDocumentIds);
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Conversation sources'),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: _documents.map((document) {
+                final id = document['id'].toString();
+                final checked = selected.contains(id);
+                return CheckboxListTile(
+                  value: checked,
+                  title: Text(document['title']?.toString() ?? 'Document'),
+                  subtitle: Text(document['status']?.toString() ?? ''),
+                  onChanged: document['status'] == 'ready'
+                      ? (value) => setDialogState(() {
+                            if (value == true) {
+                              selected.add(id);
+                            } else {
+                              selected.remove(id);
+                            }
+                          })
+                      : null,
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, selected), child: const Text('Apply')),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    final conversationId = _conversationId;
+    try {
+      if (conversationId != null) {
+        final updated = await ref.read(conversationRepositoryProvider).updateDocuments(conversationId, result.toList());
+        if (!mounted) return;
+        setState(() {
+          _selectedDocumentIds = result;
+          _conversations = _conversations
+              .map((conversation) => conversation['id'] == conversationId ? {...conversation, ...updated} : conversation)
+              .toList();
+        });
+      } else {
+        setState(() => _selectedDocumentIds = result);
+      }
+    } catch (_) {
+      _showMessage('Could not update conversation sources.');
     }
   }
 
@@ -145,7 +222,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     _scrollToBottom();
 
     try {
-      await for (final event in ref.read(conversationRepositoryProvider).streamMessage(conversationId, text)) {
+      await for (final event in ref.read(conversationRepositoryProvider).streamMessage(conversationId, text, documentIds: _selectedDocumentIds.toList())) {
         if (!mounted) return;
         final type = event['event'];
         final data = event['data'];
@@ -198,6 +275,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       appBar: AppBar(
         title: const Text('Ask DocMind'),
         actions: [
+          IconButton(onPressed: _sending ? null : _chooseDocuments, tooltip: 'Select sources', icon: Badge(label: Text('${_selectedDocumentIds.length}'), isLabelVisible: _selectedDocumentIds.isNotEmpty, child: const Icon(Icons.library_books_outlined))),
           IconButton(onPressed: _newConversation, tooltip: 'New conversation', icon: const Icon(Icons.add_comment_outlined)),
         ],
         bottom: PreferredSize(

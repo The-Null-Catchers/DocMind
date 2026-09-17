@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
 import '../../core/repositories.dart';
@@ -303,8 +304,10 @@ class _MessageBubble extends StatelessWidget {
             ...citations.map((raw) {
               final citation = Map<String, dynamic>.from(raw as Map);
               final page = citation['page_number'];
+              final documentId = citation['document_id']?.toString();
               return ListTile(
                 dense: true,
+                onTap: documentId == null ? null : () => context.push('/documents/$documentId?page=${page ?? 1}'),
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(radius: 13, child: Text('${citation['ordinal'] ?? ''}')),
                 title: Text(page == null ? 'Source' : 'Source · page $page'),

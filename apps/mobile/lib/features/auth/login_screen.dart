@@ -61,6 +61,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], decoration: const InputDecoration(labelText: 'Email'), validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null),
                   const SizedBox(height: 12),
                   TextFormField(controller: _password, obscureText: true, autofillHints: widget.register ? const [AutofillHints.newPassword] : const [AutofillHints.password], decoration: const InputDecoration(labelText: 'Password'), validator: (v) => (v == null || v.length < 10) ? 'Use at least 10 characters' : null),
+                  if (!widget.register)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: TextButton(onPressed: loading ? null : () => context.go('/forgot-password'), child: const Text('Forgot password?')),
+                    ),
                   if (state.error != null) ...[
                     const SizedBox(height: 12),
                     Text(state.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

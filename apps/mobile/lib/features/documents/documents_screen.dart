@@ -76,7 +76,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       _showMessage('Create a workspace before uploading documents.');
       return;
     }
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: true);
+    final result = await FilePicker.pickFiles(allowMultiple: true, withData: true);
     if (result == null || result.files.isEmpty) return;
 
     setState(() {
@@ -166,7 +166,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           children: [
             if (_workspaces.isNotEmpty)
               DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 decoration: const InputDecoration(labelText: 'Workspace'),
                 items: _workspaces.map((workspace) => DropdownMenuItem(value: workspace['id'] as String, child: Text(workspace['name'] as String))).toList(),
                 onChanged: _switchWorkspace,

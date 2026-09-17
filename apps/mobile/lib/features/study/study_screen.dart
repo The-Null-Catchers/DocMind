@@ -91,7 +91,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   runSpacing: 8,
                   children: ['again', 'hard', 'good', 'easy'].map((rating) => OutlinedButton(
                     onPressed: () async {
-                      synced = await ref.read(studyRepositoryProvider).reviewCard(workspaceId!, card['id'] as String, rating);
+                      synced = await ref.read(studyRepositoryProvider).reviewCard(workspaceId, card['id'] as String, rating);
                       if (context.mounted) Navigator.pop(context);
                     },
                     child: Text(rating[0].toUpperCase() + rating.substring(1)),

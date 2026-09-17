@@ -109,16 +109,57 @@ class ConversationRepository {
       } else if (line.startsWith('data:')) {
         final raw = line.substring(5).trim();
         if (raw.isEmpty) continue;
-        final decoded = jsonDecode(raw);
-        yield {
-          'event': event,
-          'data': decoded,
-        };
+        yield {'event': event, 'data': jsonDecode(raw)};
       }
     }
+  }
+}
+
+class StudyRepository {
+  StudyRepository(this._api);
+  final ApiClient _api;
+
+  Future<List<Map<String, dynamic>>> dueCards(String workspaceId) async {
+    final response = await _api.dio.get('/flashcards/due', queryParameters: {'workspace_id': workspaceId});
+    return (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> reviewCard(String cardId, String rating) async {
+    await _api.dio.post('/flashcards/$cardId/review', data: {'rating': rating});
+  }
+
+  Future<List<Map<String, dynamic>>> quizzes(String workspaceId) async {
+    final response = await _api.dio.get('/quizzes', queryParameters: {'workspace_id': workspaceId});
+    return (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> quiz(String quizId) async {
+    final response = await _api.dio.get('/quizzes/$quizId');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> submitQuiz(String quizId, Map<String, String> answers) async {
+    final response = await _api.dio.post('/quizzes/$quizId/attempts', data: {'answers': answers});
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<List<Map<String, dynamic>>> notes(String workspaceId) async {
+    final response = await _api.dio.get('/notes', queryParameters: {'workspace_id': workspaceId});
+    return (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> createNote(String workspaceId, String title, String content) async {
+    final response = await _api.dio.post('/notes', data: {
+      'workspace_id': workspaceId,
+      'title': title,
+      'content_markdown': content,
+      'source_links': <Map<String, dynamic>>[],
+    });
+    return Map<String, dynamic>.from(response.data as Map);
   }
 }
 
 final workspaceRepositoryProvider = Provider((ref) => WorkspaceRepository(ref.watch(apiClientProvider)));
 final documentRepositoryProvider = Provider((ref) => DocumentRepository(ref.watch(apiClientProvider)));
 final conversationRepositoryProvider = Provider((ref) => ConversationRepository(ref.watch(apiClientProvider)));
+final studyRepositoryProvider = Provider((ref) => StudyRepository(ref.watch(apiClientProvider)));

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -9,7 +10,8 @@ from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
 from ..models import Conversation, ConversationDocument, Document, Message, MessageCitation, User
 from ..schemas import ChatRequest, ConversationCreate
-from ..services.rag import RAGService
+from ..services.rag import RAGResult, RAGService
+from ..services.usage import record_usage
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -105,41 +107,124 @@ def delete_conversation(conversation_id: str, user: User = Depends(get_current_u
 
 
 @router.post("/{conversation_id}/messages/stream")
-async def stream_message(conversation_id: str, payload: ChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> StreamingResponse:
+async def stream_message(
+    conversation_id: str,
+    payload: ChatRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
     conversation = _owned_conversation(db, conversation_id, user)
-    existing_doc_ids = db.scalars(select(ConversationDocument.document_id).where(ConversationDocument.conversation_id == conversation_id)).all()
+    existing_doc_ids = db.scalars(
+        select(ConversationDocument.document_id).where(
+            ConversationDocument.conversation_id == conversation_id
+        )
+    ).all()
     requested_doc_ids = payload.document_ids or list(existing_doc_ids)
     doc_ids = _validate_documents(db, conversation.workspace_id, requested_doc_ids)
-    history_rows = db.scalars(select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.desc()).limit(12)).all()
-    history = [{"role": m.role, "content": m.content} for m in reversed(history_rows) if m.role in {"user", "assistant"}]
-    user_message = Message(conversation_id=conversation_id, role="user", content=payload.message)
-    db.add(user_message)
+    history_rows = db.scalars(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(12)
+    ).all()
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in reversed(history_rows)
+        if message.role in {"user", "assistant"} and message.status == "complete"
+    ]
+
+    rag = RAGService(db)
+    user_message = Message(
+        conversation_id=conversation_id,
+        role="user",
+        content=payload.message,
+    )
+    assistant_message = Message(
+        conversation_id=conversation_id,
+        role="assistant",
+        content="",
+        model=rag.llm.model,
+        status="streaming",
+    )
+    db.add_all([user_message, assistant_message])
     db.commit()
 
     async def events():
+        final_result: RAGResult | None = None
         try:
             yield f"event: status\ndata: {json.dumps({'status': 'retrieving'})}\n\n"
-            result = await RAGService(db).answer(workspace_id=conversation.workspace_id, question=payload.message, document_ids=doc_ids, history=history)
-            assistant_message = Message(conversation_id=conversation_id, role="assistant", content=result.answer, model="configured", status="complete")
-            db.add(assistant_message)
-            db.flush()
-            for citation in result.citations:
-                db.add(MessageCitation(
-                    message_id=assistant_message.id,
-                    chunk_id=citation.chunk_id,
-                    document_id=citation.document_id,
-                    page_number=citation.page_number,
-                    source_excerpt=citation.source_excerpt,
-                    ordinal=citation.ordinal,
-                ))
-            db.commit()
-            for token in result.answer.split(" "):
-                yield f"event: token\ndata: {json.dumps({'text': token + ' '}, ensure_ascii=False)}\n\n"
-            yield f"event: citations\ndata: {json.dumps([c.__dict__ for c in result.citations], ensure_ascii=False)}\n\n"
-            yield f"event: done\ndata: {json.dumps({'message_id': assistant_message.id})}\n\n"
-        except Exception as exc:
-            db.rollback()
-            yield f"event: error\ndata: {json.dumps({'message': 'Generation failed'}, ensure_ascii=False)}\n\n"
-            raise exc
+            async for event_type, data in rag.stream_answer(
+                workspace_id=conversation.workspace_id,
+                question=payload.message,
+                document_ids=doc_ids,
+                history=history,
+            ):
+                if event_type == "final":
+                    final_result = data if isinstance(data, RAGResult) else None
+                    continue
+                yield (
+                    f"event: {event_type}\n"
+                    f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                )
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+            if final_result is None:
+                raise RuntimeError("RAG stream completed without final result")
+
+            assistant_message.content = final_result.answer
+            assistant_message.status = "complete"
+            assistant_message.model = rag.llm.model
+            for citation in final_result.citations:
+                db.add(
+                    MessageCitation(
+                        message_id=assistant_message.id,
+                        chunk_id=citation.chunk_id,
+                        document_id=citation.document_id,
+                        page_number=citation.page_number,
+                        source_excerpt=citation.source_excerpt,
+                        ordinal=citation.ordinal,
+                    )
+                )
+            record_usage(
+                db,
+                workspace_id=conversation.workspace_id,
+                user_id=user.id,
+                metric="ai_messages",
+                quantity=1,
+                provider=rag.llm.name,
+                model=rag.llm.model,
+                metadata={"conversation_id": conversation_id},
+            )
+            db.commit()
+
+            yield (
+                "event: citations\n"
+                f"data: {json.dumps([citation.__dict__ for citation in final_result.citations], ensure_ascii=False)}\n\n"
+            )
+            yield (
+                "event: done\n"
+                f"data: {json.dumps({'message_id': assistant_message.id, 'model': rag.llm.model, 'provider': rag.llm.name})}\n\n"
+            )
+        except asyncio.CancelledError:
+            db.rollback()
+            assistant_message.status = "cancelled"
+            db.commit()
+            return
+        except Exception:
+            db.rollback()
+            assistant_message.status = "failed"
+            db.commit()
+            yield (
+                "event: error\n"
+                f"data: {json.dumps({'message': 'Generation failed'}, ensure_ascii=False)}\n\n"
+            )
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+

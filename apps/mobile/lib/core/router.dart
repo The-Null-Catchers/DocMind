@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/ai/ai_screen.dart';
+import '../features/auth/account_screen.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/password_recovery_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/library/library_screen.dart';
@@ -19,7 +21,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.loading) {
         return location == '/splash' ? null : '/splash';
       }
-      final isAuthRoute = location == '/login' || location == '/register';
+      final isAuthRoute = location == '/login' || location == '/register' || location == '/forgot-password';
       if (auth.status == AuthStatus.unauthenticated) {
         return isAuthRoute ? null : '/login';
       }
@@ -33,6 +35,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const LoginScreen(register: true)),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const PasswordRecoveryScreen()),
+      GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _Shell(shell: shell),
         branches: [

@@ -204,7 +204,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: DropdownButtonFormField<String>(
-              value: workspaceId,
+              initialValue: workspaceId,
               decoration: const InputDecoration(labelText: 'Workspace', isDense: true),
               items: _workspaces.map((workspace) => DropdownMenuItem(value: workspace['id'] as String, child: Text(workspace['name'] as String))).toList(),
               onChanged: _sending ? null : _switchWorkspace,

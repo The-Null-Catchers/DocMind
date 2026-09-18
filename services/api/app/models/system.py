@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, JSON, String, Text
+from datetime import datetime
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import UUIDMixin, TimestampMixin
 from ..db import Base
@@ -22,6 +23,22 @@ class Notification(Base, UUIDMixin, TimestampMixin):
     body: Mapped[str] = mapped_column(Text)
     data_json: Mapped[dict] = mapped_column(JSON, default=dict)
     read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+
+class ExportJob(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "export_jobs"
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    source_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    object_key: Mapped[str | None] = mapped_column(String(700), nullable=True)
+    filename: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Subscription(Base, UUIDMixin, TimestampMixin):

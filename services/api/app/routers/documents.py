@@ -12,6 +12,7 @@ from ..schemas import DocumentOut
 from ..services.audit import write_audit
 from ..config import get_settings
 from ..services.storage import get_storage
+from ..services.malware import get_malware_scanner
 from ..services.upload import validate_upload
 from ..services.queueing import enqueue_document_processing
 
@@ -40,6 +41,7 @@ async def upload_document(
     require_workspace_role(db, workspace_id, user.id, "editor")
     data = await file.read()
     validated = validate_upload(file.filename or "document", file.content_type or "application/octet-stream", data)
+    get_malware_scanner().scan(data)
     existing = db.scalar(select(Document).where(
         Document.workspace_id == workspace_id,
         Document.content_hash == validated.content_hash,

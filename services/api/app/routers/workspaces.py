@@ -18,7 +18,6 @@ from ..services.audit import write_audit
 
 router = APIRouter(tags=["workspaces"])
 
-INVITABLE_ROLES = {"admin", "editor", "viewer"}
 
 
 class InvitationCreate(BaseModel):
@@ -310,6 +309,7 @@ def create_invitation(
         last_sent_at=now,
     )
     db.add(invitation)
+    db.flush()
     if existing_user:
         workspace = db.get(Workspace, workspace_id)
         db.add(

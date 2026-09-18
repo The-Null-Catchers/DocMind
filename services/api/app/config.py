@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,12 @@ class Settings(BaseSettings):
     ocr_languages: str = "ara+eng"
     reranker_provider: str = "none"
 
+    malware_scanner: str = "noop"
+    clamav_host: str = "localhost"
+    clamav_port: int = 3310
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = 60
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_chat_model: str = "qwen2.5:7b"
     ollama_embed_model: str = "nomic-embed-text"
@@ -46,6 +53,46 @@ class Settings(BaseSettings):
     max_upload_mb: int = 100
     default_chunk_tokens: int = 650
     default_chunk_overlap: int = 100
+
+    @model_validator(mode="after")
+    def validate_production_configuration(self) -> "Settings":
+        if self.app_env.lower() not in {"production", "staging"}:
+            return self
+
+        weak_secret = (
+            len(self.app_secret) < 32
+            or "change-me" in self.app_secret.lower()
+            or "dev-only" in self.app_secret.lower()
+        )
+        if weak_secret:
+            raise ValueError("APP_SECRET must be a strong production secret")
+        if self.database_url.lower().startswith("sqlite"):
+            raise ValueError("Production DATABASE_URL must use PostgreSQL")
+        if self.storage_backend.lower() == "s3" and (
+            not self.s3_access_key or not self.s3_secret_key
+        ):
+            raise ValueError("S3 credentials are required when STORAGE_BACKEND=s3")
+
+        required_llm_keys = {
+            "openai": self.openai_api_key,
+            "gemini": self.gemini_api_key,
+            "anthropic": self.anthropic_api_key,
+            "groq": self.groq_api_key,
+        }
+        llm_key = required_llm_keys.get(self.llm_provider.lower())
+        if self.llm_provider.lower() in required_llm_keys and not llm_key:
+            raise ValueError(f"Credentials are required for LLM_PROVIDER={self.llm_provider}")
+
+        required_embedding_keys = {
+            "openai": self.openai_api_key,
+            "gemini": self.gemini_api_key,
+        }
+        embedding_key = required_embedding_keys.get(self.embedding_provider.lower())
+        if self.embedding_provider.lower() in required_embedding_keys and not embedding_key:
+            raise ValueError(
+                f"Credentials are required for EMBEDDING_PROVIDER={self.embedding_provider}"
+            )
+        return self
 
     @property
     def storage_path(self) -> Path:

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, FileText, Loader2, RefreshCw, RotateCcw, Search, Trash2, Upload } from "lucide-react";
@@ -28,6 +28,13 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  useEffect(() => {
+    if (window.location.hash === "#upload") {
+      input.current?.click();
+      history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   const documents = useQuery({
     queryKey: ["documents", workspaceId],

@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
-from ..models import Notification, User, Workspace, WorkspaceInvitation, WorkspaceMember
+from ..models import User, Workspace, WorkspaceInvitation, WorkspaceMember
 from ..schemas import WorkspaceCreate, WorkspaceOut
 from ..security import hash_refresh_token, new_refresh_token
 from ..services.audit import write_audit
+from ..services.notifications import notify_user
 
 router = APIRouter(tags=["workspaces"])
 
@@ -312,14 +313,14 @@ def create_invitation(
     db.flush()
     if existing_user:
         workspace = db.get(Workspace, workspace_id)
-        db.add(
-            Notification(
-                user_id=existing_user.id,
-                kind="workspace_invitation",
-                title="Workspace invitation",
-                body=f"You were invited to {workspace.name if workspace else 'a DocMind workspace'}.",
-                data_json={"workspace_id": workspace_id, "invitation_id": invitation.id},
-            )
+        notify_user(
+            db,
+            user_id=existing_user.id,
+            kind="workspace_invitation",
+            title="Workspace invitation",
+            body=f"You were invited to {workspace.name if workspace else 'a DocMind workspace'}.",
+            data={"workspace_id": workspace_id, "invitation_id": invitation.id},
+            preference_key="workspace_invitations",
         )
     write_audit(
         db,

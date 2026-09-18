@@ -22,6 +22,9 @@ class StorageProvider(ABC):
     @abstractmethod
     def signed_get_url(self, key: str, expires_seconds: int = 300) -> str: ...
 
+    @abstractmethod
+    def healthcheck(self) -> None: ...
+
 
 class LocalStorage(StorageProvider):
     def __init__(self, root: Path):
@@ -51,6 +54,11 @@ class LocalStorage(StorageProvider):
     def signed_get_url(self, key: str, expires_seconds: int = 300) -> str:
         return f"/api/v1/files/local/{quote(key)}"
 
+    def healthcheck(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        if not os.access(self.root, os.R_OK | os.W_OK):
+            raise RuntimeError("Local storage is not readable and writable")
+
 
 class S3Storage(StorageProvider):
     def __init__(self):
@@ -78,6 +86,9 @@ class S3Storage(StorageProvider):
         return self.client.generate_presigned_url(
             "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=expires_seconds
         )
+
+    def healthcheck(self) -> None:
+        self.client.head_bucket(Bucket=self.bucket)
 
 
 def get_storage() -> StorageProvider:

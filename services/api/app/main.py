@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .config import get_settings
-from .routers import admin, ai_tools, auth, conversations, documents, health, library, search, study, usage, workspaces
+from .routers import admin, ai_tools, auth, conversations, documents, health, library, notifications, search, study, usage, workspaces
 
 settings = get_settings()
 app = FastAPI(
@@ -54,3 +54,4 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(ai_tools.router, prefix="/api/v1")
 app.include_router(library.router, prefix="/api/v1")
 app.include_router(usage.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")

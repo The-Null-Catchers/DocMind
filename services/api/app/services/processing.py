@@ -11,6 +11,7 @@ from ..models import Document, DocumentChunk, DocumentPage, DocumentProcessingJo
 from .chunking import chunk_pages
 from .parsing import ParsedPage, parse_document
 from .storage import get_storage
+from .notifications import notify_user
 
 
 class DocumentProcessingService:
@@ -154,6 +155,16 @@ class DocumentProcessingService:
             self._mark_job(document_id, stage, "processing")
             self._mark_job(document_id, stage, "completed")
             self._set_status(document, "ready", 100)
+            notify_user(
+                self.db,
+                user_id=document.uploaded_by_id,
+                kind="document_processing_complete",
+                title="Document ready",
+                body=f"{document.title} is ready to search and chat with.",
+                data={"workspace_id": document.workspace_id, "document_id": document.id},
+                preference_key="document_processing",
+            )
+            self.db.commit()
         except Exception as exc:
             self.db.rollback()
             try:
@@ -163,6 +174,19 @@ class DocumentProcessingService:
             document = self.db.get(Document, document_id)
             if document:
                 self._set_status(document, "failed", document.processing_progress or 0, str(exc)[:2000])
+                notify_user(
+                    self.db,
+                    user_id=document.uploaded_by_id,
+                    kind="document_processing_failed",
+                    title="Document processing failed",
+                    body=f"{document.title} could not be processed.",
+                    data={
+                        "workspace_id": document.workspace_id,
+                        "document_id": document.id,
+                    },
+                    preference_key="document_processing",
+                )
+                self.db.commit()
             raise
 
 

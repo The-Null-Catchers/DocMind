@@ -54,6 +54,7 @@ class WorkspaceOut(ORMModel):
     description: str | None
     kind: str
     created_at: datetime
+    role: str = "viewer"
 
 
 class DocumentOut(ORMModel):

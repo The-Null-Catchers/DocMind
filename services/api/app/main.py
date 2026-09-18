@@ -6,9 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .config import get_settings
-from .routers import admin, ai_tools, auth, conversations, documents, health, library, search, study, usage, workspaces
+from .services.rate_limit import RateLimiter
+from .routers import admin, ai_tools, auth, conversations, documents, exports, health, library, notifications, search, study, usage, workspaces
 
 settings = get_settings()
+rate_limiter = RateLimiter(settings)
 app = FastAPI(
     title="DocMind API",
     version="0.1.0",
@@ -29,6 +31,13 @@ app.add_middleware(
 async def request_context(request: Request, call_next):  # type: ignore[no-untyped-def]
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     started = time.perf_counter()
+    allowed, retry_after = await rate_limiter.check(request)
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"error": {"code": "rate_limited", "message": "Too many requests"}},
+            headers={"Retry-After": str(retry_after), "x-request-id": request_id},
+        )
     response = await call_next(request)
     response.headers["x-request-id"] = request_id
     response.headers["x-response-time-ms"] = f"{(time.perf_counter() - started) * 1000:.1f}"
@@ -54,3 +63,5 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(ai_tools.router, prefix="/api/v1")
 app.include_router(library.router, prefix="/api/v1")
 app.include_router(usage.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(exports.router, prefix="/api/v1")

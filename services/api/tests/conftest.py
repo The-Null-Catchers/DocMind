@@ -15,6 +15,7 @@ os.environ["APP_SECRET"] = "test-secret-at-least-long-enough"
 os.environ["AI_MODE"] = "mock"
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["EMBEDDING_PROVIDER"] = "hash"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient

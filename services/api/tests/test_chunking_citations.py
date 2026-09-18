@@ -2,6 +2,7 @@ from app.services.chunking import chunk_pages
 from app.services.citations import build_source_context, resolve_citations, strip_unknown_citations
 from app.services.parsing import ParsedPage
 from app.services.retrieval import RetrievalHit
+from app.services.rag import _CitationDeltaSanitizer
 
 
 def test_chunking_preserves_page_ranges_and_sections():
@@ -26,3 +27,18 @@ def test_citations_only_resolve_real_retrieval_hits():
     assert len(citations) == 1
     assert citations[0].page_number == 7
     assert citations[0].chunk_id == "chunk-1"
+
+
+def test_stream_sanitizer_strips_split_model_citation_markers():
+    sanitizer = _CitationDeltaSanitizer()
+    output = [
+        sanitizer.feed("Grounded answer ["),
+        sanitizer.feed("C1] continues and [C"),
+        sanitizer.feed("999] ends."),
+        sanitizer.finish(),
+    ]
+    joined = "".join(output)
+    assert "[C1]" not in joined
+    assert "[C999]" not in joined
+    assert "Grounded answer" in joined
+    assert "continues" in joined

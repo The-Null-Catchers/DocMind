@@ -13,6 +13,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if sa.inspect(op.get_bind()).has_table("export_jobs"):
+        return
     op.create_table(
         "export_jobs",
         sa.Column("id", sa.String(36), nullable=False),

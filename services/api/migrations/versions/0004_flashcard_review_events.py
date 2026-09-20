@@ -13,6 +13,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if sa.inspect(op.get_bind()).has_table("flashcard_review_events"):
+        return
     op.create_table(
         "flashcard_review_events",
         sa.Column("id", sa.String(36), nullable=False),

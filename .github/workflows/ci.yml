@@ -21,6 +21,13 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install -e '.[dev]'
+      - name: Validate fresh migrations
+        env:
+          DATABASE_URL: sqlite:///./migration-ci.sqlite3
+        run: |
+          rm -f migration-ci.sqlite3
+          alembic upgrade head
+          alembic current
       - run: python -m compileall -q app
       - name: Critical Python lint
         run: ruff check app tests --select E9,F63,F7,F82

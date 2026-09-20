@@ -6,6 +6,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from fastapi import HTTPException, status
 
@@ -39,7 +40,7 @@ class ValidatedUpload:
     extension: str
 
 
-def _bad_type(message: str) -> None:
+def _bad_type(message: str) -> NoReturn:
     raise HTTPException(
         status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         detail=message,

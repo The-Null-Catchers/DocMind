@@ -21,7 +21,7 @@ class LLMProvider(ABC):
     model: str
 
     @abstractmethod
-    async def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]: ...
+    def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]: ...
 
 
 class EmbeddingProvider(ABC):
@@ -99,7 +99,15 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         async with httpx.AsyncClient(timeout=90) as client:
             response = await client.post(f"{self.base_url}/api/embed", json={"model": self.model, "input": texts})
             response.raise_for_status()
-            return response.json()["embeddings"]
+            payload = response.json()
+            embeddings = payload.get("embeddings")
+            if not isinstance(embeddings, list):
+                raise RuntimeError("Ollama embedding response is missing embeddings")
+            return [
+                [float(value) for value in vector]
+                for vector in embeddings
+                if isinstance(vector, list)
+            ]
 
 
 class MockGroundedLLM(LLMProvider):

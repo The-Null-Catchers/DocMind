@@ -77,15 +77,17 @@ class S3Storage(StorageProvider):
         self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
 
     def get_bytes(self, key: str) -> bytes:
-        return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        data = self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        return bytes(data)
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
     def signed_get_url(self, key: str, expires_seconds: int = 300) -> str:
-        return self.client.generate_presigned_url(
+        url = self.client.generate_presigned_url(
             "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=expires_seconds
         )
+        return str(url)
 
     def healthcheck(self) -> None:
         self.client.head_bucket(Bucket=self.bucket)

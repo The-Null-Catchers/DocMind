@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text as sql_text
 from sqlalchemy.orm import Session
 from ..ai.providers import get_embedding_provider, get_ocr_provider
 from ..config import get_settings
@@ -145,10 +145,9 @@ class DocumentProcessingService:
                 embeddings.append((row, vector))
             self.db.flush()
             if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":
-                from sqlalchemy import text
                 for row, vector in embeddings:
                     literal = "[" + ",".join(f"{value:.8f}" for value in vector) + "]"
-                    self.db.execute(text("UPDATE embeddings SET vector_native = CAST(:vector AS vector) WHERE id = :id"), {"vector": literal, "id": row.id})
+                    self.db.execute(sql_text("UPDATE embeddings SET vector_native = CAST(:vector AS vector) WHERE id = :id"), {"vector": literal, "id": row.id})
             self.db.commit()
             self._mark_job(document_id, stage, "completed")
             stage = "indexing"

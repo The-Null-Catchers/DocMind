@@ -68,6 +68,7 @@ class DocumentOut(ORMModel):
     status: str
     processing_progress: int
     page_count: int | None
+    error_message: str | None = None
     created_at: datetime
 
 

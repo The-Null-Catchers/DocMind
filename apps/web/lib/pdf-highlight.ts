@@ -8,12 +8,13 @@ export function escapeHtml(value: string): string {
 }
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&");
+  const specials = new Set(["\\\\", "^", "$", ".", "*", "+", "?", "(", ")", "[", "]", "{", "}", "|"]);
+  return [...value].map((character) => specials.has(character) ? `\\\\${character}` : character).join("");
 }
 
 export function citationTerms(sourceExcerpt?: string | null): string[] {
   if (!sourceExcerpt) return [];
-  const words = sourceExcerpt.match(/[\\p{L}\\p{N}][\\p{L}\\p{N}_-]{3,}/gu) ?? [];
+  const words = sourceExcerpt.match(/[\p{L}\p{N}][\p{L}\p{N}_-]{3,}/gu) ?? [];
   return Array.from(new Set(words.map((word) => word.toLocaleLowerCase())))
     .sort((a, b) => b.length - a.length)
     .slice(0, 40);

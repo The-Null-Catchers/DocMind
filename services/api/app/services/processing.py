@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text as sql_text
 from sqlalchemy.orm import Session
 from ..ai.providers import get_embedding_provider, get_ocr_provider
 from ..config import get_settings
@@ -11,6 +11,7 @@ from ..models import Document, DocumentChunk, DocumentPage, DocumentProcessingJo
 from .chunking import chunk_pages
 from .parsing import ParsedPage, parse_document
 from .storage import get_storage
+from .notifications import notify_user
 
 
 class DocumentProcessingService:
@@ -144,16 +145,25 @@ class DocumentProcessingService:
                 embeddings.append((row, vector))
             self.db.flush()
             if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":
-                from sqlalchemy import text
                 for row, vector in embeddings:
                     literal = "[" + ",".join(f"{value:.8f}" for value in vector) + "]"
-                    self.db.execute(text("UPDATE embeddings SET vector_native = CAST(:vector AS vector) WHERE id = :id"), {"vector": literal, "id": row.id})
+                    self.db.execute(sql_text("UPDATE embeddings SET vector_native = CAST(:vector AS vector) WHERE id = :id"), {"vector": literal, "id": row.id})
             self.db.commit()
             self._mark_job(document_id, stage, "completed")
             stage = "indexing"
             self._mark_job(document_id, stage, "processing")
             self._mark_job(document_id, stage, "completed")
             self._set_status(document, "ready", 100)
+            notify_user(
+                self.db,
+                user_id=document.uploaded_by_id,
+                kind="document_processing_complete",
+                title="Document ready",
+                body=f"{document.title} is ready to search and chat with.",
+                data={"workspace_id": document.workspace_id, "document_id": document.id},
+                preference_key="document_processing",
+            )
+            self.db.commit()
         except Exception as exc:
             self.db.rollback()
             try:
@@ -163,6 +173,19 @@ class DocumentProcessingService:
             document = self.db.get(Document, document_id)
             if document:
                 self._set_status(document, "failed", document.processing_progress or 0, str(exc)[:2000])
+                notify_user(
+                    self.db,
+                    user_id=document.uploaded_by_id,
+                    kind="document_processing_failed",
+                    title="Document processing failed",
+                    body=f"{document.title} could not be processed.",
+                    data={
+                        "workspace_id": document.workspace_id,
+                        "document_id": document.id,
+                    },
+                    preference_key="document_processing",
+                )
+                self.db.commit()
             raise
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 import subprocess
@@ -20,7 +21,7 @@ class LLMProvider(ABC):
     model: str
 
     @abstractmethod
-    async def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]: ...
+    def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]: ...
 
 
 class EmbeddingProvider(ABC):
@@ -98,7 +99,15 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         async with httpx.AsyncClient(timeout=90) as client:
             response = await client.post(f"{self.base_url}/api/embed", json={"model": self.model, "input": texts})
             response.raise_for_status()
-            return response.json()["embeddings"]
+            payload = response.json()
+            embeddings = payload.get("embeddings")
+            if not isinstance(embeddings, list):
+                raise RuntimeError("Ollama embedding response is missing embeddings")
+            return [
+                [float(value) for value in vector]
+                for vector in embeddings
+                if isinstance(vector, list)
+            ]
 
 
 class MockGroundedLLM(LLMProvider):
@@ -142,6 +151,198 @@ class OllamaLLM(LLMProvider):
                         yield content
 
 
+class OpenAICompatibleLLM(LLMProvider):
+    def __init__(self, *, name: str, base_url: str, api_key: str, model: str):
+        self.name = name
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.model = model
+
+    async def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        payload = {
+            "model": self.model,
+            "stream": True,
+            "messages": [{"role": "system", "content": system}] + messages,
+        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if not raw or raw == "[DONE]":
+                        continue
+                    data = json.loads(raw)
+                    choices = data.get("choices") or []
+                    if not choices:
+                        continue
+                    content = choices[0].get("delta", {}).get("content")
+                    if content:
+                        yield content
+
+
+class AnthropicLLM(LLMProvider):
+    name = "anthropic"
+
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+
+    async def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        payload = {
+            "model": self.model,
+            "system": system,
+            "messages": [
+                message for message in messages if message.get("role") in {"user", "assistant"}
+            ],
+            "max_tokens": 4096,
+            "stream": True,
+        }
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+        }
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST",
+                "https://api.anthropic.com/v1/messages",
+                json=payload,
+                headers=headers,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if not raw:
+                        continue
+                    data = json.loads(raw)
+                    if data.get("type") != "content_block_delta":
+                        continue
+                    delta = data.get("delta", {})
+                    if delta.get("type") == "text_delta" and delta.get("text"):
+                        yield delta["text"]
+
+
+class GeminiLLM(LLMProvider):
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+
+    @staticmethod
+    def _contents(messages: list[dict[str, str]]) -> list[dict]:
+        contents: list[dict] = []
+        for message in messages:
+            role = message.get("role")
+            if role == "system":
+                role = "user"
+            if role not in {"user", "assistant", "model"}:
+                continue
+            contents.append(
+                {
+                    "role": "model" if role in {"assistant", "model"} else "user",
+                    "parts": [{"text": message.get("content", "")}],
+                }
+            )
+        return contents
+
+    async def stream(self, *, system: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        payload = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": self._contents(messages),
+        }
+        headers = {"x-goog-api-key": self.api_key}
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:streamGenerateContent?alt=sse"
+        )
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", url, json=payload, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if not raw:
+                        continue
+                    data = json.loads(raw)
+                    candidates = data.get("candidates") or []
+                    if not candidates:
+                        continue
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    for part in parts:
+                        text = part.get("text")
+                        if text:
+                            yield text
+
+
+class OpenAIEmbeddingProvider(EmbeddingProvider):
+    name = "openai"
+
+    def __init__(self, api_key: str, model: str, dimension: int):
+        self.api_key = api_key
+        self.model = model
+        self.dimension = dimension
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        payload: dict = {"model": self.model, "input": texts}
+        if self.dimension:
+            payload["dimensions"] = self.dimension
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/embeddings",
+                json=payload,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
+            response.raise_for_status()
+            rows = sorted(response.json()["data"], key=lambda row: row["index"])
+            return [row["embedding"] for row in rows]
+
+
+class GeminiEmbeddingProvider(EmbeddingProvider):
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str, dimension: int):
+        self.api_key = api_key
+        self.model = model
+        self.dimension = dimension
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        model_name = self.model.removeprefix("models/")
+        requests = [
+            {
+                "model": f"models/{model_name}",
+                "content": {"parts": [{"text": text}]},
+                "embedContentConfig": {
+                    "taskType": "SEMANTIC_SIMILARITY",
+                    "outputDimensionality": self.dimension,
+                },
+            }
+            for text in texts
+        ]
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:batchEmbedContents"
+        )
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await client.post(
+                url,
+                json={"requests": requests},
+                headers={"x-goog-api-key": self.api_key},
+            )
+            response.raise_for_status()
+            return [embedding["values"] for embedding in response.json()["embeddings"]]
+
+
 class TesseractOCR(OCRProvider):
     name = "tesseract"
 
@@ -176,15 +377,63 @@ class NoopReranker(RerankerProvider):
 
 def get_embedding_provider() -> EmbeddingProvider:
     s = get_settings()
-    if s.embedding_provider == "ollama":
-        return OllamaEmbeddingProvider(s.ollama_base_url, s.ollama_embed_model, s.embedding_dimension)
+    provider = s.embedding_provider.lower()
+    if provider == "ollama":
+        return OllamaEmbeddingProvider(
+            s.ollama_base_url,
+            s.ollama_embed_model,
+            s.embedding_dimension,
+        )
+    if provider == "openai":
+        if not s.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is required for OpenAI embeddings")
+        return OpenAIEmbeddingProvider(
+            s.openai_api_key,
+            s.embedding_model,
+            s.embedding_dimension,
+        )
+    if provider == "gemini":
+        if not s.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY is required for Gemini embeddings")
+        return GeminiEmbeddingProvider(
+            s.gemini_api_key,
+            s.embedding_model,
+            s.embedding_dimension,
+        )
     return HashEmbeddingProvider(s.embedding_dimension, s.embedding_model)
 
 
 def get_llm_provider() -> LLMProvider:
     s = get_settings()
-    if s.llm_provider == "ollama":
+    provider = s.llm_provider.lower()
+    if provider == "ollama":
         return OllamaLLM(s.ollama_base_url, s.ollama_chat_model)
+    if provider == "openai":
+        if not s.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is required for OpenAI")
+        return OpenAICompatibleLLM(
+            name="openai",
+            base_url="https://api.openai.com/v1",
+            api_key=s.openai_api_key,
+            model=s.llm_model,
+        )
+    if provider == "groq":
+        if not s.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is required for Groq")
+        return OpenAICompatibleLLM(
+            name="groq",
+            base_url="https://api.groq.com/openai/v1",
+            api_key=s.groq_api_key,
+            model=s.llm_model,
+        )
+    if provider == "anthropic":
+        if not s.anthropic_api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY is required for Anthropic")
+        return AnthropicLLM(s.anthropic_api_key, s.llm_model)
+    if provider == "gemini":
+        if not s.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY is required for Gemini")
+        return GeminiLLM(s.gemini_api_key, s.llm_model)
     return MockGroundedLLM()
 
 

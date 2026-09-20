@@ -12,6 +12,7 @@ from ..schemas import DocumentOut
 from ..services.audit import write_audit
 from ..config import get_settings
 from ..services.storage import get_storage
+from ..services.malware import get_malware_scanner
 from ..services.upload import validate_upload
 from ..services.queueing import enqueue_document_processing
 
@@ -40,6 +41,7 @@ async def upload_document(
     require_workspace_role(db, workspace_id, user.id, "editor")
     data = await file.read()
     validated = validate_upload(file.filename or "document", file.content_type or "application/octet-stream", data)
+    get_malware_scanner().scan(data)
     existing = db.scalar(select(Document).where(
         Document.workspace_id == workspace_id,
         Document.content_hash == validated.content_hash,
@@ -67,8 +69,16 @@ async def upload_document(
     db.add(document)
     write_audit(db, workspace_id, user.id, "document.uploaded", "document", document.id, {"filename": validated.safe_name})
     db.commit()
-    # Dev fallback. Production Celery worker calls the same idempotent service.
     enqueue_document_processing(background_tasks, document.id)
+    return DocumentOut.model_validate(document)
+
+
+@router.get("/{document_id}", response_model=DocumentOut)
+def get_document(document_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> DocumentOut:
+    document = db.get(Document, document_id)
+    if not document or document.deleted_at:
+        raise HTTPException(status_code=404, detail="Document not found")
+    require_workspace_role(db, document.workspace_id, user.id, "viewer")
     return DocumentOut.model_validate(document)
 
 
@@ -130,7 +140,6 @@ def delete_document(document_id: str, user: User = Depends(get_current_user), db
     require_workspace_role(db, document.workspace_id, user.id, "editor")
     workspace_id = document.workspace_id
     key = document.object_key
-    # Cascading derived-data deletion is intentionally immediate; object cleanup is idempotent.
     db.delete(document)
     write_audit(db, workspace_id, user.id, "document.deleted", "document", document_id)
     db.commit()

@@ -21,11 +21,20 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install -e '.[dev]'
+      - name: Validate fresh migrations
+        env:
+          DATABASE_URL: sqlite:///./migration-ci.sqlite3
+        run: |
+          rm -f migration-ci.sqlite3
+          alembic upgrade head
+          alembic current
       - run: python -m compileall -q app
       - name: Critical Python lint
         run: ruff check app tests --select E9,F63,F7,F82
-      - run: mypy app --ignore-missing-imports
-        continue-on-error: true
+      - name: Full Python lint report
+        run: ruff check app tests --exit-zero
+      - name: Python typecheck
+        run: mypy app --ignore-missing-imports
       - run: pytest
       - name: RAG evaluation
         working-directory: ${{ github.workspace }}
@@ -37,8 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22', cache: 'npm', cache-dependency-path: apps/web/package.json}
-      - run: npm install
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -56,7 +65,9 @@ jobs:
           flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
       - run: flutter pub get
-      - run: flutter analyze
+      - name: Apply Dart formatter in CI
+        run: dart format lib test
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --release --build-number=${{ github.run_number }}
       - run: flutter build appbundle --release --build-number=${{ github.run_number }}

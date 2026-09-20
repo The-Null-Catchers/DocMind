@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
-from ..models import Flashcard, FlashcardDeck, Quiz, QuizAttempt, QuizQuestion, User
+from ..models import Flashcard, FlashcardDeck, FlashcardReviewEvent, Quiz, QuizAttempt, QuizQuestion, User
 from ..schemas import FlashcardReviewRequest
 from ..services.study import review_sm2
 
@@ -49,18 +50,66 @@ def due_cards(workspace_id: str, user: User = Depends(get_current_user), db: Ses
     return [{"id": c.id, "deck_id": c.deck_id, "front": c.front, "back": c.back, "due_at": c.due_at, "sources": c.source_citations} for c in cards]
 
 
+def _review_out(card: Flashcard) -> dict:
+    return {
+        "id": card.id,
+        "due_at": card.due_at,
+        "interval_days": card.interval_days,
+        "ease_factor": card.ease_factor,
+        "repetition": card.repetition,
+    }
+
+
 @router.post("/flashcards/{card_id}/review")
 def review_card(card_id: str, payload: FlashcardReviewRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
-    card = db.get(Flashcard, card_id)
+    card = db.scalar(select(Flashcard).where(Flashcard.id == card_id).with_for_update())
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     deck = db.get(FlashcardDeck, card.deck_id)
     if not deck or deck.user_id != user.id:
         raise HTTPException(status_code=404, detail="Card not found")
     require_workspace_role(db, deck.workspace_id, user.id, "viewer")
+
+    if payload.idempotency_key:
+        existing = db.scalar(
+            select(FlashcardReviewEvent).where(
+                FlashcardReviewEvent.user_id == user.id,
+                FlashcardReviewEvent.idempotency_key == payload.idempotency_key,
+            )
+        )
+        if existing:
+            if existing.card_id != card.id or existing.rating != payload.rating:
+                raise HTTPException(status_code=409, detail="Idempotency key was already used for a different review")
+            return _review_out(card)
+
     review_sm2(card, payload.rating)
-    db.commit()
-    return {"id": card.id, "due_at": card.due_at, "interval_days": card.interval_days, "ease_factor": card.ease_factor}
+    if payload.idempotency_key:
+        db.add(
+            FlashcardReviewEvent(
+                card_id=card.id,
+                user_id=user.id,
+                idempotency_key=payload.idempotency_key,
+                rating=payload.rating,
+            )
+        )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if not payload.idempotency_key:
+            raise
+        existing = db.scalar(
+            select(FlashcardReviewEvent).where(
+                FlashcardReviewEvent.user_id == user.id,
+                FlashcardReviewEvent.idempotency_key == payload.idempotency_key,
+            )
+        )
+        if not existing or existing.card_id != card_id or existing.rating != payload.rating:
+            raise HTTPException(status_code=409, detail="Idempotency key conflict")
+        card = db.get(Flashcard, card_id)
+        if not card:
+            raise HTTPException(status_code=404, detail="Card not found")
+    return _review_out(card)
 
 
 @router.get("/quizzes")

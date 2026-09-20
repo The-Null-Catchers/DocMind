@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -16,6 +17,12 @@ bool _isOfflineError(Object error) {
         DioExceptionType.receiveTimeout,
         DioExceptionType.sendTimeout,
       }.contains(error.type);
+}
+
+String _newIdempotencyKey() {
+  final random = Random.secure();
+  final entropy = List.generate(4, (_) => random.nextInt(0x7fffffff).toRadixString(36)).join();
+  return 'review-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-$entropy';
 }
 
 class WorkspaceRepository {
@@ -211,7 +218,12 @@ class StudyRepository {
     final remaining = <Map<String, dynamic>>[];
     for (final review in pending) {
       try {
-        await _api.dio.post('/flashcards/${review['card_id']}/review', data: {'rating': review['rating']});
+        final idempotencyKey = review['idempotency_key']?.toString() ??
+            'legacy-${review['card_id']}-${review['created_at']}';
+        await _api.dio.post('/flashcards/${review['card_id']}/review', data: {
+          'rating': review['rating'],
+          'idempotency_key': idempotencyKey,
+        });
       } catch (error) {
         remaining.add(review);
         if (_isOfflineError(error)) {
@@ -242,14 +254,19 @@ class StudyRepository {
   }
 
   Future<bool> reviewCard(String workspaceId, String cardId, String rating) async {
+    final idempotencyKey = _newIdempotencyKey();
     try {
-      await _api.dio.post('/flashcards/$cardId/review', data: {'rating': rating});
+      await _api.dio.post('/flashcards/$cardId/review', data: {
+        'rating': rating,
+        'idempotency_key': idempotencyKey,
+      });
       return true;
     } catch (error) {
       if (!_isOfflineError(error)) rethrow;
       await _cache.append(_reviewsKey(workspaceId), {
         'card_id': cardId,
         'rating': rating,
+        'idempotency_key': idempotencyKey,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
       final cached = await _cache.readList(_cardsKey(workspaceId));

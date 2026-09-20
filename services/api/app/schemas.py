@@ -107,3 +107,4 @@ class ChatRequest(BaseModel):
 
 class FlashcardReviewRequest(BaseModel):
     rating: str = Field(pattern="^(again|hard|good|easy)$")
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)

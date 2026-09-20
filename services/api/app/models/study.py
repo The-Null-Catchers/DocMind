@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import UUIDMixin, TimestampMixin
 from ..db import Base
@@ -27,6 +27,18 @@ class Flashcard(Base, UUIDMixin, TimestampMixin):
     interval_days: Mapped[int] = mapped_column(Integer, default=0)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class FlashcardReviewEvent(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "flashcard_review_events"
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_flashcard_review_user_key"),
+    )
+
+    card_id: Mapped[str] = mapped_column(ForeignKey("flashcards.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), index=True)
+    rating: Mapped[str] = mapped_column(String(20))
 
 
 class Quiz(Base, UUIDMixin, TimestampMixin):

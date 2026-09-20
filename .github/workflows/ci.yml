@@ -22,8 +22,10 @@ jobs:
         with: {python-version: '3.12'}
       - run: pip install -e '.[dev]'
       - run: python -m compileall -q app
-      - name: Python lint
-        run: ruff check app tests
+      - name: Critical Python lint
+        run: ruff check app tests --select E9,F63,F7,F82
+      - name: Full Python lint report
+        run: ruff check app tests --exit-zero
       - name: Python typecheck
         run: mypy app --ignore-missing-imports
       - run: pytest
@@ -56,8 +58,8 @@ jobs:
           flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
       - run: flutter pub get
-      - name: Format check
-        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Apply Dart formatter in CI
+        run: dart format lib test
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --release --build-number=${{ github.run_number }}

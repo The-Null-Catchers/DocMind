@@ -26,3 +26,13 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSyst
 .surface { @apply bg-panel border border-line rounded-2xl; }
 .skeleton { @apply animate-pulse bg-muted rounded-lg; }
 [dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+
+.react-pdf__Page__textContent {
+  user-select: text;
+}
+.docmind-pdf-highlight {
+  border-radius: .18rem;
+  background: hsl(var(--accent) / .24);
+  color: inherit;
+  box-shadow: 0 0 0 1px hsl(var(--accent) / .14);
+}

@@ -7,11 +7,6 @@ export function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
-function escapeRegExp(value: string): string {
-  const specials = new Set(["\\\\", "^", "$", ".", "*", "+", "?", "(", ")", "[", "]", "{", "}", "|"]);
-  return [...value].map((character) => specials.has(character) ? `\\\\${character}` : character).join("");
-}
-
 export function citationTerms(sourceExcerpt?: string | null): string[] {
   if (!sourceExcerpt) return [];
   const words = sourceExcerpt.match(/[\p{L}\p{N}][\p{L}\p{N}_-]{3,}/gu) ?? [];
@@ -24,7 +19,7 @@ export function renderHighlightedPdfText(text: string, sourceExcerpt?: string | 
   const terms = citationTerms(sourceExcerpt);
   if (!terms.length) return escapeHtml(text);
 
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "giu");
+  const pattern = new RegExp(`(${terms.join("|")})`, "giu");
   let cursor = 0;
   let result = "";
   for (const match of text.matchAll(pattern)) {

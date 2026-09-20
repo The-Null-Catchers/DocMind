@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .config import get_settings
 from .services.rate_limit import RateLimiter
-from .routers import admin, ai_tools, auth, conversations, documents, exports, health, library, notifications, search, study, usage, workspaces
+from .routers import admin, ai_tools, auth, conversations, dashboard, documents, exports, health, library, notifications, search, study, usage, workspaces
 
 settings = get_settings()
 rate_limiter = RateLimiter(settings)
@@ -59,6 +59,7 @@ app.include_router(documents.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(conversations.router, prefix="/api/v1")
 app.include_router(study.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(ai_tools.router, prefix="/api/v1")
 app.include_router(library.router, prefix="/api/v1")

@@ -50,6 +50,7 @@ export default function DocumentWorkspacePage() {
   const [zoom, setZoom] = useState(100);
   const [query, setQuery] = useState("");
   const [blobUrl, setBlobUrl] = useState<string>();
+  const [highlightText, setHighlightText] = useState("");
 
   const document = useQuery({
     queryKey: ["document", id],
@@ -106,10 +107,11 @@ export default function DocumentWorkspacePage() {
     };
   }, [document.data?.mime_type, document.data?.status, id]);
 
-  function goToPage(nextPage: number, chunkId?: string) {
+  function goToPage(nextPage: number, chunkId?: string, excerpt?: string) {
     const maxPage = document.data?.page_count ?? nextPage;
     const bounded = Math.max(1, Math.min(nextPage, maxPage || nextPage));
     setPage(bounded);
+    setHighlightText(excerpt ?? "");
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(bounded));
     if (chunkId) params.set("chunk", chunkId); else params.delete("chunk");
@@ -147,7 +149,7 @@ export default function DocumentWorkspacePage() {
               <p className="px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-ink/40">Search results</p>
               {search.isFetching && <p className="px-2 py-3 text-xs text-ink/40">Searching…</p>}
               {!search.isFetching && search.data?.length === 0 && <p className="px-2 py-3 text-xs text-ink/40">No matching passages.</p>}
-              {search.data?.map((hit)=><button key={hit.chunk_id} onClick={()=>hit.page_number && goToPage(hit.page_number, hit.chunk_id)} className="mb-1 w-full rounded-lg px-2 py-2 text-left hover:bg-muted"><div className="flex items-center justify-between gap-2"><span className="truncate text-[11px] font-medium">{hit.section_title || "Passage"}</span><span className="shrink-0 text-[10px] text-ink/35">{hit.page_number ? `p. ${hit.page_number}` : ""}</span></div><p className="mt-1 line-clamp-3 text-[11px] leading-4 text-ink/50">{hit.excerpt}</p></button>)}
+              {search.data?.map((hit)=><button key={hit.chunk_id} onClick={()=>hit.page_number && goToPage(hit.page_number, hit.chunk_id, hit.excerpt)} className="mb-1 w-full rounded-lg px-2 py-2 text-left hover:bg-muted"><div className="flex items-center justify-between gap-2"><span className="truncate text-[11px] font-medium">{hit.section_title || "Passage"}</span><span className="shrink-0 text-[10px] text-ink/35">{hit.page_number ? `p. ${hit.page_number}` : ""}</span></div><p className="mt-1 line-clamp-3 text-[11px] leading-4 text-ink/50">{hit.excerpt}</p></button>)}
             </> : <>
               <p className="px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-ink/40">Pages</p>
               {pageNumbers.length ? <div className="grid grid-cols-4 gap-1 px-1">{pageNumbers.map((number)=><button key={number} onClick={()=>goToPage(number)} className={`rounded-lg px-2 py-2 text-xs ${number === page ? "bg-ink text-panel" : "hover:bg-muted"}`}>{number}</button>)}</div> : <p className="px-2 py-3 text-xs text-ink/40">Page count unavailable.</p>}
@@ -157,11 +159,11 @@ export default function DocumentWorkspacePage() {
       </Panel>
       <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30"/>
       <Panel defaultSize={52} minSize={34}>
-        {isPdf ? <PdfViewer fileUrl={blobUrl} page={page} pageCount={doc.page_count} zoom={zoom} onPageChange={goToPage} onZoomChange={setZoom}/> : <div className="flex h-full min-h-0 flex-col bg-muted/30"><div className="flex h-12 items-center border-b bg-panel px-4 text-xs text-ink/45">Page {page}{doc.page_count ? ` / ${doc.page_count}` : ""}{currentPage.data?.ocr_used ? " · OCR" : ""}</div><div className="min-h-0 flex-1 overflow-auto p-6"><article className="mx-auto max-w-4xl whitespace-pre-wrap rounded-2xl border bg-panel p-7 text-sm leading-7 shadow-sm">{currentPage.isLoading ? "Loading extracted text…" : currentPage.data?.text || "No extracted text is available for this page."}</article></div></div>}
+        {isPdf ? <PdfViewer fileUrl={blobUrl} page={page} pageCount={doc.page_count} zoom={zoom} highlightText={highlightText} onPageChange={(nextPage)=>goToPage(nextPage)} onZoomChange={setZoom}/> : <div className="flex h-full min-h-0 flex-col bg-muted/30"><div className="flex h-12 items-center border-b bg-panel px-4 text-xs text-ink/45">Page {page}{doc.page_count ? ` / ${doc.page_count}` : ""}{currentPage.data?.ocr_used ? " · OCR" : ""}</div><div className="min-h-0 flex-1 overflow-auto p-6"><article className="mx-auto max-w-4xl whitespace-pre-wrap rounded-2xl border bg-panel p-7 text-sm leading-7 shadow-sm">{currentPage.isLoading ? "Loading extracted text…" : currentPage.data?.text || "No extracted text is available for this page."}</article></div></div>}
       </Panel>
       <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30"/>
       <Panel defaultSize={30} minSize={24} maxSize={44}>
-        <ChatPanel workspaceId={doc.workspace_id} documentId={doc.id} documentTitle={doc.title} onCitation={(citation)=>{if(citation.page_number) goToPage(citation.page_number, citation.chunk_id);}}/>
+        <ChatPanel workspaceId={doc.workspace_id} documentId={doc.id} documentTitle={doc.title} onCitation={(citation)=>{if(citation.page_number) goToPage(citation.page_number, citation.chunk_id, citation.source_excerpt);}}/>
       </Panel>
     </PanelGroup>
   </div>;

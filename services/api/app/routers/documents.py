@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
@@ -27,6 +27,80 @@ def list_documents(workspace_id: str, user: User = Depends(get_current_user), db
         Document.deleted_at.is_(None),
     ).order_by(Document.created_at.desc()).limit(100)).all()
     return [DocumentOut.model_validate(row) for row in rows]
+
+
+@router.get("/library")
+def document_library(
+    workspace_id: str,
+    q: str = Query(default="", max_length=300),
+    status: str | None = Query(default=None, max_length=30),
+    mime_type: str | None = Query(default=None, max_length=150),
+    folder_id: str | None = Query(default=None, max_length=36),
+    sort: str = Query(default="created_at", pattern="^(created_at|title|file_size|status)$"),
+    direction: str = Query(default="desc", pattern="^(asc|desc)$"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=25, ge=1, le=100),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_workspace_role(db, workspace_id, user.id, "viewer")
+    base_filters = [
+        Document.workspace_id == workspace_id,
+        Document.deleted_at.is_(None),
+    ]
+    filters = list(base_filters)
+    needle = q.strip()
+    if needle:
+        pattern = f"%{needle}%"
+        filters.append(or_(Document.title.ilike(pattern), Document.original_filename.ilike(pattern)))
+    if status:
+        filters.append(Document.status == status)
+    if mime_type:
+        filters.append(Document.mime_type == mime_type)
+    if folder_id:
+        filters.append(Document.folder_id == folder_id)
+
+    sort_columns = {
+        "created_at": Document.created_at,
+        "title": Document.title,
+        "file_size": Document.file_size,
+        "status": Document.status,
+    }
+    sort_column = sort_columns[sort]
+    ordering = sort_column.asc() if direction == "asc" else sort_column.desc()
+    rows = db.scalars(
+        select(Document)
+        .where(*filters)
+        .order_by(ordering, Document.id.asc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    total = int(db.scalar(select(func.count(Document.id)).where(*filters)) or 0)
+    statuses = [
+        str(value)
+        for value in db.scalars(
+            select(Document.status)
+            .where(*base_filters)
+            .distinct()
+            .order_by(Document.status.asc())
+        ).all()
+    ]
+    mime_types = [
+        str(value)
+        for value in db.scalars(
+            select(Document.mime_type)
+            .where(*base_filters)
+            .distinct()
+            .order_by(Document.mime_type.asc())
+        ).all()
+    ]
+    return {
+        "items": [DocumentOut.model_validate(row).model_dump() for row in rows],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "facets": {"statuses": statuses, "mime_types": mime_types},
+    }
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=202)

@@ -22,10 +22,10 @@ jobs:
         with: {python-version: '3.12'}
       - run: pip install -e '.[dev]'
       - run: python -m compileall -q app
-      - name: Critical Python lint
-        run: ruff check app tests --select E9,F63,F7,F82
-      - run: mypy app --ignore-missing-imports
-        continue-on-error: true
+      - name: Python lint
+        run: ruff check app tests
+      - name: Python typecheck
+        run: mypy app --ignore-missing-imports
       - run: pytest
       - name: RAG evaluation
         working-directory: ${{ github.workspace }}
@@ -37,8 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22', cache: 'npm', cache-dependency-path: apps/web/package.json}
-      - run: npm install
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -56,6 +56,8 @@ jobs:
           flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
       - run: flutter pub get
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --release --build-number=${{ github.run_number }}

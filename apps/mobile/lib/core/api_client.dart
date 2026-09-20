@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -41,7 +42,6 @@ class ApiClient {
           final response = await dio.fetch<dynamic>(request);
           handler.resolve(response);
         } catch (_) {
-          await clearTokens();
           handler.next(error);
         }
       },
@@ -54,9 +54,37 @@ class ApiClient {
 
   Future<String?> accessToken() => _storage.read(key: 'access_token');
 
+  Future<String?> accountId() => _storage.read(key: 'account_id');
+
+  Future<Map<String, dynamic>?> cachedUser() async {
+    final raw = await _storage.read(key: 'session_user');
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } on FormatException {
+      await _storage.delete(key: 'session_user');
+    }
+    return null;
+  }
+
   Future<void> saveTokens(String access, String refresh) async {
     await _storage.write(key: 'access_token', value: access);
     await _storage.write(key: 'refresh_token', value: refresh);
+  }
+
+  Future<void> saveSession(String access, String refresh, Map<String, dynamic> user) async {
+    await saveTokens(access, refresh);
+    await cacheUser(user);
+  }
+
+  Future<void> cacheUser(Map<String, dynamic> user) async {
+    final id = user['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw StateError('Authenticated user is missing an id');
+    }
+    await _storage.write(key: 'account_id', value: id);
+    await _storage.write(key: 'session_user', value: jsonEncode(user));
   }
 
   Future<bool> hasRefreshToken() async {
@@ -86,8 +114,11 @@ class ApiClient {
       final data = Map<String, dynamic>.from(response.data as Map);
       await saveTokens(data['access_token'] as String, data['refresh_token'] as String);
       return true;
-    } on DioException {
-      await clearTokens();
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await clearTokens();
+      }
       return false;
     }
   }
@@ -110,5 +141,7 @@ class ApiClient {
   Future<void> clearTokens() async {
     await _storage.delete(key: 'access_token');
     await _storage.delete(key: 'refresh_token');
+    await _storage.delete(key: 'account_id');
+    await _storage.delete(key: 'session_user');
   }
 }

@@ -36,7 +36,6 @@ class AccountRepository {
 
   Future<void> deleteAccount() async {
     await _api.dio.delete('/auth/account');
-    await _api.clearTokens();
   }
 }
 

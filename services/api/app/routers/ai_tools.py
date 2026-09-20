@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..dependencies import get_current_user, require_workspace_role
-from ..models import Document, DocumentChunk, Flashcard, FlashcardDeck, Quiz, QuizQuestion, User
+from ..models import Document, DocumentChunk, DocumentPage, Flashcard, FlashcardDeck, Note, Quiz, QuizQuestion, User
+from ..ai.providers import get_llm_provider
 from ..services.extraction import StructuredExtractionService
 from ..services.rag import RAGService
+from ..services.usage import record_usage
 
 router = APIRouter(tags=["ai-tools"])
 
@@ -34,6 +37,191 @@ class ExtractionRequest(DocumentsRequest):
 class StudyGenerateRequest(DocumentsRequest):
     count: int = Field(default=10, ge=1, le=50)
     difficulty: str = Field(default="medium", pattern="^(easy|medium|hard)$")
+
+
+class SelectionActionRequest(BaseModel):
+    workspace_id: str
+    document_id: str
+    page_number: int = Field(ge=1)
+    selected_text: str = Field(min_length=2, max_length=12000)
+    action: str = Field(
+        pattern="^(explain|summarize|rewrite|translate|ask|create_flashcard|add_to_notes)$"
+    )
+    question: str | None = Field(default=None, max_length=2000)
+    target_language: str | None = Field(default=None, max_length=40)
+
+
+def _normalize_selection(value: str) -> str:
+    value = value.replace("\u00ad", "")
+    value = re.sub(r"-\s+(?=\w)", "", value)
+    return re.sub(r"\s+", " ", value).strip().casefold()
+
+
+def _selection_page(
+    db: Session,
+    *,
+    workspace_id: str,
+    document_id: str,
+    page_number: int,
+    selected_text: str,
+) -> tuple[Document, DocumentPage]:
+    document = db.get(Document, document_id)
+    if (
+        not document
+        or document.deleted_at
+        or document.workspace_id != workspace_id
+    ):
+        raise HTTPException(status_code=404, detail="Document not found")
+    page = db.scalar(
+        select(DocumentPage).where(
+            DocumentPage.document_id == document_id,
+            DocumentPage.page_number == page_number,
+        )
+    )
+    if not page:
+        raise HTTPException(status_code=404, detail="Document page not found")
+    selected = _normalize_selection(selected_text)
+    source = _normalize_selection(page.text)
+    if not selected or selected not in source:
+        raise HTTPException(
+            status_code=422,
+            detail="Selected text could not be verified against this document page",
+        )
+    return document, page
+
+
+async def _selection_generation(payload: SelectionActionRequest) -> tuple[str, str, str]:
+    instructions = {
+        "explain": "Explain this selection clearly and concisely. Do not introduce unsupported facts.",
+        "summarize": "Summarize this selection faithfully and concisely.",
+        "rewrite": "Rewrite this selection for clarity while preserving its meaning. Do not add facts.",
+        "translate": (
+            f"Translate this selection into {payload.target_language or 'English'}. "
+            "Preserve names, numbers, and meaning."
+        ),
+        "ask": payload.question or "Answer what this selection means using only the selected text.",
+    }
+    llm = get_llm_provider()
+    source_context = (
+        "[SOURCE C1]\n"
+        f"Document: {payload.document_id}\n"
+        f"Page: {payload.page_number}\n"
+        f"{payload.selected_text}"
+    )
+    messages = [
+        {"role": "system", "content": source_context},
+        {"role": "user", "content": instructions[payload.action]},
+    ]
+    parts: list[str] = []
+    async for part in llm.stream(
+        system=(
+            "Use only the supplied document selection. "
+            "Do not invent context that is not present in the source."
+        ),
+        messages=messages,
+    ):
+        parts.append(part)
+    return "".join(parts).strip(), llm.name, llm.model
+
+
+@router.post("/ai/selection")
+async def selection_action(
+    payload: SelectionActionRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_workspace_role(db, payload.workspace_id, user.id, "viewer")
+    document, _page = _selection_page(
+        db,
+        workspace_id=payload.workspace_id,
+        document_id=payload.document_id,
+        page_number=payload.page_number,
+        selected_text=payload.selected_text,
+    )
+    citation = {
+        "document_id": document.id,
+        "page_number": payload.page_number,
+        "source_excerpt": payload.selected_text[:1200],
+    }
+
+    if payload.action == "create_flashcard":
+        require_workspace_role(db, payload.workspace_id, user.id, "editor")
+        deck = db.scalar(
+            select(FlashcardDeck).where(
+                FlashcardDeck.workspace_id == payload.workspace_id,
+                FlashcardDeck.user_id == user.id,
+                FlashcardDeck.name == "Selection cards",
+            )
+        )
+        if not deck:
+            deck = FlashcardDeck(
+                workspace_id=payload.workspace_id,
+                user_id=user.id,
+                name="Selection cards",
+                language="ar" if re.search(r"[\u0600-\u06FF]", payload.selected_text) else "en",
+            )
+            db.add(deck)
+            db.flush()
+        preview = re.sub(r"\s+", " ", payload.selected_text).strip()
+        card = Flashcard(
+            deck_id=deck.id,
+            front=("اشرح: " if deck.language == "ar" else "Explain: ") + preview[:240],
+            back=payload.selected_text,
+            source_citations=[citation],
+            difficulty="medium",
+            tags=["selection"],
+        )
+        db.add(card)
+        db.commit()
+        return {
+            "kind": "flashcard",
+            "deck_id": deck.id,
+            "card_id": card.id,
+            "citation": citation,
+        }
+
+    if payload.action == "add_to_notes":
+        require_workspace_role(db, payload.workspace_id, user.id, "editor")
+        preview = re.sub(r"\s+", " ", payload.selected_text).strip()
+        note = Note(
+            workspace_id=payload.workspace_id,
+            user_id=user.id,
+            title=preview[:80] or "Document selection",
+            content_markdown=payload.selected_text,
+            source_links=[citation],
+        )
+        db.add(note)
+        db.commit()
+        return {
+            "kind": "note",
+            "note_id": note.id,
+            "citation": citation,
+        }
+
+    content, provider, model = await _selection_generation(payload)
+    record_usage(
+        db,
+        workspace_id=payload.workspace_id,
+        user_id=user.id,
+        metric="ai_messages",
+        quantity=1,
+        provider=provider,
+        model=model,
+        metadata={
+            "feature": "selection_action",
+            "action": payload.action,
+            "document_id": payload.document_id,
+            "page_number": payload.page_number,
+        },
+    )
+    db.commit()
+    return {
+        "kind": "generation",
+        "content": content,
+        "provider": provider,
+        "model": model,
+        "citation": citation,
+    }
 
 
 @router.post("/summaries/generate")

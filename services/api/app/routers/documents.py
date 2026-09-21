@@ -192,6 +192,49 @@ def get_page(document_id: str, page_number: int, user: User = Depends(get_curren
     return {"page_number": page.page_number, "text": page.text, "ocr_used": page.ocr_used, "ocr_confidence": page.ocr_confidence, "metadata": page.metadata_json}
 
 
+
+
+@router.get("/{document_id}/tables")
+def get_tables(
+    document_id: str,
+    page: int | None = Query(default=None, ge=1),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    document = db.get(Document, document_id)
+    if not document or document.deleted_at:
+        raise HTTPException(status_code=404, detail="Document not found")
+    require_workspace_role(db, document.workspace_id, user.id, "viewer")
+
+    statement = select(DocumentPage).where(DocumentPage.document_id == document_id)
+    if page is not None:
+        statement = statement.where(DocumentPage.page_number == page)
+    rows = db.scalars(statement.order_by(DocumentPage.page_number.asc())).all()
+
+    tables: list[dict] = []
+    for row in rows:
+        metadata = row.metadata_json or {}
+        raw_tables = metadata.get("tables", [])
+        if not isinstance(raw_tables, list):
+            continue
+        for raw in raw_tables:
+            if not isinstance(raw, dict):
+                continue
+            table_rows = raw.get("rows", [])
+            if not isinstance(table_rows, list):
+                continue
+            tables.append(
+                {
+                    "page_number": row.page_number,
+                    "table_index": int(raw.get("table_index") or len(tables) + 1),
+                    "rows": table_rows,
+                    "row_count": int(raw.get("row_count") or len(table_rows)),
+                    "column_count": int(raw.get("column_count") or 0),
+                    "truncated": bool(raw.get("truncated")),
+                }
+            )
+    return tables
+
 @router.post("/{document_id}/reprocess", status_code=202)
 def reprocess_document(document_id: str, background_tasks: BackgroundTasks, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     document = db.get(Document, document_id)

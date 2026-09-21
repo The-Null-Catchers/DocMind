@@ -22,7 +22,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.loading) {
         return location == '/splash' ? null : '/splash';
       }
-      final isAuthRoute = location == '/login' || location == '/register' || location == '/forgot-password';
+      final isAuthRoute =
+          location == '/login' ||
+          location == '/register' ||
+          location == '/forgot-password';
       if (auth.status == AuthStatus.unauthenticated) {
         return isAuthRoute ? null : '/login';
       }
@@ -32,27 +35,61 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (_, __) => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        builder: (_, __) =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const LoginScreen(register: true)),
-      GoRoute(path: '/forgot-password', builder: (_, __) => const PasswordRecoveryScreen()),
+      GoRoute(
+        path: '/register',
+        builder: (_, __) => const LoginScreen(register: true),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, __) => const PasswordRecoveryScreen(),
+      ),
       GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
       GoRoute(
         path: '/documents/:id',
         builder: (_, state) => DocumentReaderScreen(
           documentId: state.pathParameters['id']!,
-          initialPage: int.tryParse(state.uri.queryParameters['page'] ?? '') ?? 1,
+          initialPage:
+              int.tryParse(state.uri.queryParameters['page'] ?? '') ?? 1,
         ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _Shell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, __) => const HomeScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/ai', builder: (_, __) => const AiScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/study', builder: (_, __) => const StudyScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/library', builder: (_, __) => const LibraryScreen())]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/documents',
+                builder: (_, __) => const DocumentsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/ai', builder: (_, __) => const AiScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/study', builder: (_, __) => const StudyScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/library',
+                builder: (_, __) => const LibraryScreen(),
+              ),
+            ],
+          ),
         ],
       ),
     ],
@@ -65,17 +102,38 @@ class _Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(child: shell),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: shell.currentIndex,
-          onDestinationSelected: (index) => shell.goBranch(index, initialLocation: index == shell.currentIndex),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-            NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'Documents'),
-            NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'AI'),
-            NavigationDestination(icon: Icon(Icons.school_outlined), selectedIcon: Icon(Icons.school), label: 'Study'),
-            NavigationDestination(icon: Icon(Icons.bookmarks_outlined), selectedIcon: Icon(Icons.bookmarks), label: 'Library'),
-          ],
+    body: SafeArea(child: shell),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: shell.currentIndex,
+      onDestinationSelected: (index) =>
+          shell.goBranch(index, initialLocation: index == shell.currentIndex),
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Home',
         ),
-      );
+        NavigationDestination(
+          icon: Icon(Icons.description_outlined),
+          selectedIcon: Icon(Icons.description),
+          label: 'Documents',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.auto_awesome_outlined),
+          selectedIcon: Icon(Icons.auto_awesome),
+          label: 'AI',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.school_outlined),
+          selectedIcon: Icon(Icons.school),
+          label: 'Study',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.bookmarks_outlined),
+          selectedIcon: Icon(Icons.bookmarks),
+          label: 'Library',
+        ),
+      ],
+    ),
+  );
 }

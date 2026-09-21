@@ -185,6 +185,7 @@ async def stream_message(
 
     async def events():
         final_result: RAGResult | None = None
+        partial_content = ""
         try:
             yield f"event: status\ndata: {json.dumps({'status': 'retrieving'})}\n\n"
             async for event_type, data in rag.stream_answer(
@@ -196,6 +197,12 @@ async def stream_message(
                 if event_type == "final":
                     final_result = data if isinstance(data, RAGResult) else None
                     continue
+                if (
+                    event_type == "token"
+                    and isinstance(data, dict)
+                    and isinstance(data.get("text"), str)
+                ):
+                    partial_content += data["text"]
                 yield (
                     f"event: {event_type}\n"
                     f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -240,13 +247,19 @@ async def stream_message(
             )
         except asyncio.CancelledError:
             db.rollback()
-            assistant_message.status = "cancelled"
-            db.commit()
+            persisted = db.get(Message, assistant_message.id)
+            if persisted:
+                persisted.content = partial_content.strip()
+                persisted.status = "cancelled"
+                db.commit()
             return
         except Exception:
             db.rollback()
-            assistant_message.status = "failed"
-            db.commit()
+            persisted = db.get(Message, assistant_message.id)
+            if persisted:
+                persisted.content = partial_content.strip()
+                persisted.status = "failed"
+                db.commit()
             yield (
                 "event: error\n"
                 f"data: {json.dumps({'message': 'Generation failed'}, ensure_ascii=False)}\n\n"

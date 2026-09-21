@@ -21,7 +21,10 @@ bool _isOfflineError(Object error) {
 
 String _newIdempotencyKey() {
   final random = Random.secure();
-  final entropy = List.generate(4, (_) => random.nextInt(0x7fffffff).toRadixString(36)).join();
+  final entropy = List.generate(
+    4,
+    (_) => random.nextInt(0x7fffffff).toRadixString(36),
+  ).join();
   return 'review-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-$entropy';
 }
 
@@ -33,7 +36,9 @@ class WorkspaceRepository {
   Future<List<Map<String, dynamic>>> list() async {
     try {
       final response = await _api.dio.get('/workspaces');
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson('workspaces', rows);
       return rows;
     } catch (error) {
@@ -43,7 +48,10 @@ class WorkspaceRepository {
   }
 
   Future<Map<String, dynamic>> create(String name) async {
-    final response = await _api.dio.post('/workspaces', data: {'name': name, 'kind': 'personal'});
+    final response = await _api.dio.post(
+      '/workspaces',
+      data: {'name': name, 'kind': 'personal'},
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 }
@@ -57,8 +65,13 @@ class DocumentRepository {
 
   Future<List<Map<String, dynamic>>> list(String workspaceId) async {
     try {
-      final response = await _api.dio.get('/documents', queryParameters: {'workspace_id': workspaceId});
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/documents',
+        queryParameters: {'workspace_id': workspaceId},
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(_key(workspaceId), rows);
       return rows;
     } catch (error) {
@@ -73,7 +86,9 @@ class DocumentRepository {
   }
 
   Future<Map<String, dynamic>> page(String documentId, int pageNumber) async {
-    final response = await _api.dio.get('/documents/$documentId/pages/$pageNumber');
+    final response = await _api.dio.get(
+      '/documents/$documentId/pages/$pageNumber',
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
@@ -88,7 +103,9 @@ class DocumentRepository {
     final token = await _api.accessToken();
     return {
       'url': url,
-      'headers': token == null || token.isEmpty ? <String, String>{} : <String, String>{'Authorization': 'Bearer $token'},
+      'headers': token == null || token.isEmpty
+          ? <String, String>{}
+          : <String, String>{'Authorization': 'Bearer $token'},
     };
   }
 
@@ -102,7 +119,11 @@ class DocumentRepository {
       'workspace_id': workspaceId,
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
-    final response = await _api.dio.post('/documents/upload', data: form, onSendProgress: onProgress);
+    final response = await _api.dio.post(
+      '/documents/upload',
+      data: form,
+      onSendProgress: onProgress,
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
@@ -131,8 +152,13 @@ class ConversationRepository {
   Future<List<Map<String, dynamic>>> list(String workspaceId) async {
     final key = 'conversations_$workspaceId';
     try {
-      final response = await _api.dio.get('/conversations', queryParameters: {'workspace_id': workspaceId});
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/conversations',
+        queryParameters: {'workspace_id': workspaceId},
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(key, rows);
       return rows;
     } catch (error) {
@@ -141,20 +167,30 @@ class ConversationRepository {
     }
   }
 
-  Future<Map<String, dynamic>> create(String workspaceId, {List<String> documentIds = const []}) async {
-    final response = await _api.dio.post('/conversations', data: {
-      'workspace_id': workspaceId,
-      'title': 'New conversation',
-      'document_ids': documentIds,
-    });
+  Future<Map<String, dynamic>> create(
+    String workspaceId, {
+    List<String> documentIds = const [],
+  }) async {
+    final response = await _api.dio.post(
+      '/conversations',
+      data: {
+        'workspace_id': workspaceId,
+        'title': 'New conversation',
+        'document_ids': documentIds,
+      },
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<List<Map<String, dynamic>>> messages(String conversationId) async {
     final key = 'conversation_messages_$conversationId';
     try {
-      final response = await _api.dio.get('/conversations/$conversationId/messages');
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/conversations/$conversationId/messages',
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(key, rows);
       return rows;
     } catch (error) {
@@ -164,11 +200,20 @@ class ConversationRepository {
   }
 
   Future<void> rename(String conversationId, String title) async {
-    await _api.dio.patch('/conversations/$conversationId', data: {'title': title});
+    await _api.dio.patch(
+      '/conversations/$conversationId',
+      data: {'title': title},
+    );
   }
 
-  Future<Map<String, dynamic>> updateDocuments(String conversationId, List<String> documentIds) async {
-    final response = await _api.dio.patch('/conversations/$conversationId', data: {'document_ids': documentIds});
+  Future<Map<String, dynamic>> updateDocuments(
+    String conversationId,
+    List<String> documentIds,
+  ) async {
+    final response = await _api.dio.patch(
+      '/conversations/$conversationId',
+      data: {'document_ids': documentIds},
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
@@ -177,17 +222,32 @@ class ConversationRepository {
     await _cache.clear('conversation_messages_$conversationId');
   }
 
-  Stream<Map<String, dynamic>> streamMessage(String conversationId, String message, {List<String> documentIds = const []}) async* {
+  Stream<Map<String, dynamic>> streamMessage(
+    String conversationId,
+    String message, {
+    List<String> documentIds = const [],
+  }) async* {
     final response = await _api.dio.post<ResponseBody>(
       '/conversations/$conversationId/messages/stream',
-      data: {'message': message, 'document_ids': documentIds, 'language': 'auto'},
-      options: Options(responseType: ResponseType.stream, headers: {'Accept': 'text/event-stream'}),
+      data: {
+        'message': message,
+        'document_ids': documentIds,
+        'language': 'auto',
+      },
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: {'Accept': 'text/event-stream'},
+      ),
     );
     final body = response.data;
     if (body == null) throw StateError('Empty streaming response');
 
     var event = 'message';
-    await for (final line in body.stream.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter())) {
+    await for (final line
+        in body.stream
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
       if (line.startsWith('event:')) {
         event = line.substring(6).trim();
       } else if (line.startsWith('data:')) {
@@ -209,7 +269,8 @@ class StudyRepository {
   String _notesKey(String workspaceId) => 'notes_$workspaceId';
   String _reviewsKey(String workspaceId) => 'pending_reviews_$workspaceId';
 
-  Future<int> pendingReviewCount(String workspaceId) async => (await _cache.readList(_reviewsKey(workspaceId))).length;
+  Future<int> pendingReviewCount(String workspaceId) async =>
+      (await _cache.readList(_reviewsKey(workspaceId))).length;
 
   Future<void> syncPendingReviews(String workspaceId) async {
     final key = _reviewsKey(workspaceId);
@@ -218,17 +279,19 @@ class StudyRepository {
     final remaining = <Map<String, dynamic>>[];
     for (final review in pending) {
       try {
-        final idempotencyKey = review['idempotency_key']?.toString() ??
+        final idempotencyKey =
+            review['idempotency_key']?.toString() ??
             'legacy-${review['card_id']}-${review['created_at']}';
-        await _api.dio.post('/flashcards/${review['card_id']}/review', data: {
-          'rating': review['rating'],
-          'idempotency_key': idempotencyKey,
-        });
+        await _api.dio.post(
+          '/flashcards/${review['card_id']}/review',
+          data: {'rating': review['rating'], 'idempotency_key': idempotencyKey},
+        );
       } catch (error) {
         remaining.add(review);
         if (_isOfflineError(error)) {
           final index = pending.indexOf(review);
-          if (index + 1 < pending.length) remaining.addAll(pending.sublist(index + 1));
+          if (index + 1 < pending.length)
+            remaining.addAll(pending.sublist(index + 1));
           break;
         }
       }
@@ -243,23 +306,33 @@ class StudyRepository {
   Future<List<Map<String, dynamic>>> dueCards(String workspaceId) async {
     try {
       await syncPendingReviews(workspaceId);
-      final response = await _api.dio.get('/flashcards/due', queryParameters: {'workspace_id': workspaceId});
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/flashcards/due',
+        queryParameters: {'workspace_id': workspaceId},
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(_cardsKey(workspaceId), rows);
       return rows;
     } catch (error) {
-      if (_isOfflineError(error)) return _cache.readList(_cardsKey(workspaceId));
+      if (_isOfflineError(error))
+        return _cache.readList(_cardsKey(workspaceId));
       rethrow;
     }
   }
 
-  Future<bool> reviewCard(String workspaceId, String cardId, String rating) async {
+  Future<bool> reviewCard(
+    String workspaceId,
+    String cardId,
+    String rating,
+  ) async {
     final idempotencyKey = _newIdempotencyKey();
     try {
-      await _api.dio.post('/flashcards/$cardId/review', data: {
-        'rating': rating,
-        'idempotency_key': idempotencyKey,
-      });
+      await _api.dio.post(
+        '/flashcards/$cardId/review',
+        data: {'rating': rating, 'idempotency_key': idempotencyKey},
+      );
       return true;
     } catch (error) {
       if (!_isOfflineError(error)) rethrow;
@@ -278,12 +351,18 @@ class StudyRepository {
 
   Future<List<Map<String, dynamic>>> quizzes(String workspaceId) async {
     try {
-      final response = await _api.dio.get('/quizzes', queryParameters: {'workspace_id': workspaceId});
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/quizzes',
+        queryParameters: {'workspace_id': workspaceId},
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(_quizzesKey(workspaceId), rows);
       return rows;
     } catch (error) {
-      if (_isOfflineError(error)) return _cache.readList(_quizzesKey(workspaceId));
+      if (_isOfflineError(error))
+        return _cache.readList(_quizzesKey(workspaceId));
       rethrow;
     }
   }
@@ -304,35 +383,74 @@ class StudyRepository {
     }
   }
 
-  Future<Map<String, dynamic>> submitQuiz(String quizId, Map<String, String> answers) async {
-    final response = await _api.dio.post('/quizzes/$quizId/attempts', data: {'answers': answers});
+  Future<Map<String, dynamic>> submitQuiz(
+    String quizId,
+    Map<String, String> answers,
+  ) async {
+    final response = await _api.dio.post(
+      '/quizzes/$quizId/attempts',
+      data: {'answers': answers},
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<List<Map<String, dynamic>>> notes(String workspaceId) async {
     try {
-      final response = await _api.dio.get('/notes', queryParameters: {'workspace_id': workspaceId});
-      final rows = (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final response = await _api.dio.get(
+        '/notes',
+        queryParameters: {'workspace_id': workspaceId},
+      );
+      final rows = (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       await _cache.writeJson(_notesKey(workspaceId), rows);
       return rows;
     } catch (error) {
-      if (_isOfflineError(error)) return _cache.readList(_notesKey(workspaceId));
+      if (_isOfflineError(error))
+        return _cache.readList(_notesKey(workspaceId));
       rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> createNote(String workspaceId, String title, String content) async {
-    final response = await _api.dio.post('/notes', data: {
-      'workspace_id': workspaceId,
-      'title': title,
-      'content_markdown': content,
-      'source_links': <Map<String, dynamic>>[],
-    });
+  Future<Map<String, dynamic>> createNote(
+    String workspaceId,
+    String title,
+    String content,
+  ) async {
+    final response = await _api.dio.post(
+      '/notes',
+      data: {
+        'workspace_id': workspaceId,
+        'title': title,
+        'content_markdown': content,
+        'source_links': <Map<String, dynamic>>[],
+      },
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 }
 
-final workspaceRepositoryProvider = Provider((ref) => WorkspaceRepository(ref.watch(apiClientProvider), ref.watch(offlineCacheProvider)));
-final documentRepositoryProvider = Provider((ref) => DocumentRepository(ref.watch(apiClientProvider), ref.watch(offlineCacheProvider)));
-final conversationRepositoryProvider = Provider((ref) => ConversationRepository(ref.watch(apiClientProvider), ref.watch(offlineCacheProvider)));
-final studyRepositoryProvider = Provider((ref) => StudyRepository(ref.watch(apiClientProvider), ref.watch(offlineCacheProvider)));
+final workspaceRepositoryProvider = Provider(
+  (ref) => WorkspaceRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(offlineCacheProvider),
+  ),
+);
+final documentRepositoryProvider = Provider(
+  (ref) => DocumentRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(offlineCacheProvider),
+  ),
+);
+final conversationRepositoryProvider = Provider(
+  (ref) => ConversationRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(offlineCacheProvider),
+  ),
+);
+final studyRepositoryProvider = Provider(
+  (ref) => StudyRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(offlineCacheProvider),
+  ),
+);

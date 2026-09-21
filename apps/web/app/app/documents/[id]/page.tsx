@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -8,6 +8,7 @@ import { CircleAlert, FileText, Loader2, Search } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat-panel";
 import { PdfViewer } from "@/components/pdf-viewer";
+import { SelectionActions } from "@/components/selection-actions";
 import { api, apiBlob } from "@/lib/api";
 
 type DocumentDetail = {
@@ -51,6 +52,10 @@ export default function DocumentWorkspacePage() {
   const [query, setQuery] = useState("");
   const [blobUrl, setBlobUrl] = useState<string>();
   const [highlightText, setHighlightText] = useState("");
+  const [selectedText, setSelectedText] = useState("");
+  const handleSelectionChange = useCallback((text: string | null) => {
+    setSelectedText(text ?? "");
+  }, []);
 
   const document = useQuery({
     queryKey: ["document", id],
@@ -112,6 +117,7 @@ export default function DocumentWorkspacePage() {
     const bounded = Math.max(1, Math.min(nextPage, maxPage || nextPage));
     setPage(bounded);
     setHighlightText(excerpt ?? "");
+    setSelectedText("");
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(bounded));
     if (chunkId) params.set("chunk", chunkId); else params.delete("chunk");
@@ -159,7 +165,54 @@ export default function DocumentWorkspacePage() {
       </Panel>
       <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30"/>
       <Panel defaultSize={52} minSize={34}>
-        {isPdf ? <PdfViewer fileUrl={blobUrl} page={page} pageCount={doc.page_count} zoom={zoom} highlightText={highlightText} onPageChange={(nextPage)=>goToPage(nextPage)} onZoomChange={setZoom}/> : <div className="flex h-full min-h-0 flex-col bg-muted/30"><div className="flex h-12 items-center border-b bg-panel px-4 text-xs text-ink/45">Page {page}{doc.page_count ? ` / ${doc.page_count}` : ""}{currentPage.data?.ocr_used ? " · OCR" : ""}</div><div className="min-h-0 flex-1 overflow-auto p-6"><article className="mx-auto max-w-4xl whitespace-pre-wrap rounded-2xl border bg-panel p-7 text-sm leading-7 shadow-sm">{currentPage.isLoading ? "Loading extracted text…" : currentPage.data?.text || "No extracted text is available for this page."}</article></div></div>}
+        <div className="relative h-full min-h-0">
+          {isPdf ? (
+            <PdfViewer
+              fileUrl={blobUrl}
+              page={page}
+              pageCount={doc.page_count}
+              zoom={zoom}
+              highlightText={highlightText}
+              onPageChange={(nextPage)=>goToPage(nextPage)}
+              onZoomChange={setZoom}
+              onSelectionChange={handleSelectionChange}
+            />
+          ) : (
+            <div className="flex h-full min-h-0 flex-col bg-muted/30">
+              <div className="flex h-12 items-center border-b bg-panel px-4 text-xs text-ink/45">
+                Page {page}{doc.page_count ? ` / ${doc.page_count}` : ""}{currentPage.data?.ocr_used ? " · OCR" : ""}
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto p-6">
+                <article
+                  tabIndex={0}
+                  onMouseUp={() => {
+                    const text = window.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "";
+                    setSelectedText(text.length >= 2 ? text.slice(0, 12000) : "");
+                  }}
+                  onKeyUp={() => {
+                    const text = window.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "";
+                    setSelectedText(text.length >= 2 ? text.slice(0, 12000) : "");
+                  }}
+                  className="mx-auto max-w-4xl whitespace-pre-wrap rounded-2xl border bg-panel p-7 text-sm leading-7 shadow-sm outline-none focus:ring-2 focus:ring-accent/20"
+                >
+                  {currentPage.isLoading ? "Loading extracted text…" : currentPage.data?.text || "No extracted text is available for this page."}
+                </article>
+              </div>
+            </div>
+          )}
+          {selectedText && (
+            <SelectionActions
+              workspaceId={doc.workspace_id}
+              documentId={doc.id}
+              page={page}
+              selectedText={selectedText}
+              onClear={() => {
+                window.getSelection()?.removeAllRanges();
+                setSelectedText("");
+              }}
+            />
+          )}
+        </div>
       </Panel>
       <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30"/>
       <Panel defaultSize={30} minSize={24} maxSize={44}>

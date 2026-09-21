@@ -19,6 +19,7 @@ export function PdfViewer({
   highlightText,
   onPageChange,
   onZoomChange,
+  onSelectionChange,
 }: {
   fileUrl?: string;
   page: number;
@@ -27,6 +28,7 @@ export function PdfViewer({
   highlightText?: string | null;
   onPageChange: (page: number) => void;
   onZoomChange: (zoom: number) => void;
+  onSelectionChange?: (text: string | null) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -46,7 +48,26 @@ export function PdfViewer({
   useEffect(() => {
     setLoadError(false);
     setPdfPageCount(null);
-  }, [fileUrl]);
+    onSelectionChange?.(null);
+  }, [fileUrl, page, onSelectionChange]);
+
+  function reportSelection() {
+    const container = viewportRef.current;
+    const selection = window.getSelection();
+    if (!container || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      onSelectionChange?.(null);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const common = range.commonAncestorContainer;
+    const commonNode = common.nodeType === Node.TEXT_NODE ? common.parentNode : common;
+    if (!commonNode || !container.contains(commonNode)) {
+      onSelectionChange?.(null);
+      return;
+    }
+    const text = selection.toString().replace(/\s+/g, " ").trim();
+    onSelectionChange?.(text.length >= 2 ? text.slice(0, 12000) : null);
+  }
 
   const maxPage = pdfPageCount ?? (pageCount && pageCount > 0 ? pageCount : undefined);
   const canNext = maxPage == null || page < maxPage;
@@ -73,7 +94,12 @@ export function PdfViewer({
         </div>
       </div>
 
-      <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto p-4">
+      <div
+        ref={viewportRef}
+        onMouseUp={reportSelection}
+        onKeyUp={reportSelection}
+        className="min-h-0 flex-1 overflow-auto p-4"
+      >
         {!fileUrl ? (
           <div className="grid h-full min-h-72 place-items-center p-8 text-center text-sm text-ink/45">The original PDF preview is unavailable. Extracted page text can still be read and cited.</div>
         ) : loadError ? (

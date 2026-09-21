@@ -26,7 +26,7 @@ RULES = [
     RateRule("POST", re.compile(r"^/api/v1/documents/[^/]+/reprocess$"), 10),
     RateRule("POST", re.compile(r"^/api/v1/search$"), 60),
     RateRule("POST", re.compile(r"^/api/v1/conversations/[^/]+/messages/stream$"), 30),
-    RateRule("POST", re.compile(r"^/api/v1/(summaries/generate|compare|extract)$"), 20),
+    RateRule("POST", re.compile(r"^/api/v1/(summaries/generate|compare|extract|ai/selection)$"), 20),
     RateRule("POST", re.compile(r"^/api/v1/(flashcards|quizzes)/generate$"), 15),
 ]
 

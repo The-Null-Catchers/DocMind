@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { Plus, Save, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -20,6 +21,7 @@ type Note = {
 
 export default function NotesPage() {
   const workspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -32,6 +34,14 @@ export default function NotesPage() {
   });
 
   const selected = notes.data?.find((note) => note.id === selectedId) ?? null;
+
+  useEffect(() => {
+    const requested = searchParams.get("note");
+    if (requested && notes.data?.some((note) => note.id === requested)) {
+      setSelectedId(requested);
+    }
+  }, [notes.data, searchParams]);
+
   useEffect(() => {
     if (!selected) return;
     setTitle(selected.title);

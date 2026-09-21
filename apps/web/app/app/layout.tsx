@@ -1,2 +1,10 @@
 import { WorkspaceShell } from "@/components/workspace-shell";
-export default function AppLayout({ children }: { children: React.ReactNode }) { return <WorkspaceShell>{children}</WorkspaceShell>; }
+import { QueryProvider } from "../providers";
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryProvider>
+      <WorkspaceShell>{children}</WorkspaceShell>
+    </QueryProvider>
+  );
+}

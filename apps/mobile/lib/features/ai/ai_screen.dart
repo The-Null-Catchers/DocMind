@@ -54,8 +54,12 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       List<Map<String, dynamic>> conversations = const [];
       List<Map<String, dynamic>> documents = const [];
       if (workspaceId != null) {
-        conversations = await ref.read(conversationRepositoryProvider).list(workspaceId);
-        documents = await ref.read(documentRepositoryProvider).list(workspaceId);
+        conversations = await ref
+            .read(conversationRepositoryProvider)
+            .list(workspaceId);
+        documents = await ref
+            .read(documentRepositoryProvider)
+            .list(workspaceId);
       }
       if (!mounted) return;
       setState(() {
@@ -87,14 +91,19 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       _selectedDocumentIds = <String>{};
     });
     try {
-      final conversations = await ref.read(conversationRepositoryProvider).list(workspaceId);
-      final documents = await ref.read(documentRepositoryProvider).list(workspaceId);
+      final conversations = await ref
+          .read(conversationRepositoryProvider)
+          .list(workspaceId);
+      final documents = await ref
+          .read(documentRepositoryProvider)
+          .list(workspaceId);
       if (!mounted) return;
       setState(() {
         _conversations = conversations;
         _documents = documents;
       });
-      if (conversations.isNotEmpty) await _selectConversation(conversations.first['id'] as String);
+      if (conversations.isNotEmpty)
+        await _selectConversation(conversations.first['id'] as String);
     } catch (_) {
       _showMessage('Could not switch workspace.');
     }
@@ -107,13 +116,20 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       return;
     }
     try {
-      final created = await ref.read(conversationRepositoryProvider).create(workspaceId, documentIds: _selectedDocumentIds.toList());
+      final created = await ref
+          .read(conversationRepositoryProvider)
+          .create(workspaceId, documentIds: _selectedDocumentIds.toList());
       if (!mounted) return;
       setState(() {
         _conversations = [created, ..._conversations];
         _conversationId = created['id'] as String;
         _messages = const [];
-        _selectedDocumentIds = Set<String>.from((created['document_ids'] as List?)?.map((value) => value.toString()) ?? const <String>[]);
+        _selectedDocumentIds = Set<String>.from(
+          (created['document_ids'] as List?)?.map(
+                (value) => value.toString(),
+              ) ??
+              const <String>[],
+        );
       });
     } catch (_) {
       _showMessage('Could not start a conversation.');
@@ -121,14 +137,23 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   }
 
   Future<void> _selectConversation(String id) async {
-    final conversation = _conversations.cast<Map<String, dynamic>?>().firstWhere((item) => item?['id'] == id, orElse: () => null);
+    final conversation = _conversations
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((item) => item?['id'] == id, orElse: () => null);
     setState(() {
       _conversationId = id;
       _loading = true;
-      _selectedDocumentIds = Set<String>.from((conversation?['document_ids'] as List?)?.map((value) => value.toString()) ?? const <String>[]);
+      _selectedDocumentIds = Set<String>.from(
+        (conversation?['document_ids'] as List?)?.map(
+              (value) => value.toString(),
+            ) ??
+            const <String>[],
+      );
     });
     try {
-      final messages = await ref.read(conversationRepositoryProvider).messages(id);
+      final messages = await ref
+          .read(conversationRepositoryProvider)
+          .messages(id);
       if (!mounted || _conversationId != id) return;
       setState(() {
         _messages = messages;
@@ -141,7 +166,6 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       _showMessage('Could not load conversation history.');
     }
   }
-
 
   Future<void> _chooseDocuments() async {
     if (_documents.isEmpty) {
@@ -167,20 +191,26 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                   subtitle: Text(document['status']?.toString() ?? ''),
                   onChanged: document['status'] == 'ready'
                       ? (value) => setDialogState(() {
-                            if (value == true) {
-                              selected.add(id);
-                            } else {
-                              selected.remove(id);
-                            }
-                          })
+                          if (value == true) {
+                            selected.add(id);
+                          } else {
+                            selected.remove(id);
+                          }
+                        })
                       : null,
                 );
               }).toList(),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, selected), child: const Text('Apply')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, selected),
+              child: const Text('Apply'),
+            ),
           ],
         ),
       ),
@@ -189,12 +219,18 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     final conversationId = _conversationId;
     try {
       if (conversationId != null) {
-        final updated = await ref.read(conversationRepositoryProvider).updateDocuments(conversationId, result.toList());
+        final updated = await ref
+            .read(conversationRepositoryProvider)
+            .updateDocuments(conversationId, result.toList());
         if (!mounted) return;
         setState(() {
           _selectedDocumentIds = result;
           _conversations = _conversations
-              .map((conversation) => conversation['id'] == conversationId ? {...conversation, ...updated} : conversation)
+              .map(
+                (conversation) => conversation['id'] == conversationId
+                    ? {...conversation, ...updated}
+                    : conversation,
+              )
               .toList();
         });
       } else {
@@ -213,8 +249,17 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     if (conversationId == null) return;
 
     _controller.clear();
-    final userMessage = <String, dynamic>{'role': 'user', 'content': text, 'citations': const []};
-    final assistantMessage = <String, dynamic>{'role': 'assistant', 'content': '', 'citations': <dynamic>[], 'status': 'streaming'};
+    final userMessage = <String, dynamic>{
+      'role': 'user',
+      'content': text,
+      'citations': const [],
+    };
+    final assistantMessage = <String, dynamic>{
+      'role': 'assistant',
+      'content': '',
+      'citations': <dynamic>[],
+      'status': 'streaming',
+    };
     setState(() {
       _sending = true;
       _messages = [..._messages, userMessage, assistantMessage];
@@ -222,12 +267,20 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     _scrollToBottom();
 
     try {
-      await for (final event in ref.read(conversationRepositoryProvider).streamMessage(conversationId, text, documentIds: _selectedDocumentIds.toList())) {
+      await for (final event
+          in ref
+              .read(conversationRepositoryProvider)
+              .streamMessage(
+                conversationId,
+                text,
+                documentIds: _selectedDocumentIds.toList(),
+              )) {
         if (!mounted) return;
         final type = event['event'];
         final data = event['data'];
         if (type == 'token' && data is Map) {
-          assistantMessage['content'] = '${assistantMessage['content']}${data['text'] ?? ''}';
+          assistantMessage['content'] =
+              '${assistantMessage['content']}${data['text'] ?? ''}';
         } else if (type == 'citations' && data is List) {
           assistantMessage['citations'] = data;
         } else if (type == 'status' && data is Map) {
@@ -243,7 +296,8 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       }
     } catch (_) {
       assistantMessage['status'] = 'failed';
-      assistantMessage['content'] = (assistantMessage['content'] as String).isEmpty
+      assistantMessage['content'] =
+          (assistantMessage['content'] as String).isEmpty
           ? 'The answer could not be generated. Your question is saved; please try again.'
           : assistantMessage['content'];
       if (mounted) setState(() => _messages = [..._messages]);
@@ -265,7 +319,9 @@ class _AiScreenState extends ConsumerState<AiScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -275,8 +331,20 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       appBar: AppBar(
         title: const Text('Ask DocMind'),
         actions: [
-          IconButton(onPressed: _sending ? null : _chooseDocuments, tooltip: 'Select sources', icon: Badge(label: Text('${_selectedDocumentIds.length}'), isLabelVisible: _selectedDocumentIds.isNotEmpty, child: const Icon(Icons.library_books_outlined))),
-          IconButton(onPressed: _newConversation, tooltip: 'New conversation', icon: const Icon(Icons.add_comment_outlined)),
+          IconButton(
+            onPressed: _sending ? null : _chooseDocuments,
+            tooltip: 'Select sources',
+            icon: Badge(
+              label: Text('${_selectedDocumentIds.length}'),
+              isLabelVisible: _selectedDocumentIds.isNotEmpty,
+              child: const Icon(Icons.library_books_outlined),
+            ),
+          ),
+          IconButton(
+            onPressed: _newConversation,
+            tooltip: 'New conversation',
+            icon: const Icon(Icons.add_comment_outlined),
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
@@ -284,64 +352,89 @@ class _AiScreenState extends ConsumerState<AiScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: DropdownButtonFormField<String>(
               initialValue: workspaceId,
-              decoration: const InputDecoration(labelText: 'Workspace', isDense: true),
-              items: _workspaces.map((workspace) => DropdownMenuItem(value: workspace['id'] as String, child: Text(workspace['name'] as String))).toList(),
+              decoration: const InputDecoration(
+                labelText: 'Workspace',
+                isDense: true,
+              ),
+              items: _workspaces
+                  .map(
+                    (workspace) => DropdownMenuItem(
+                      value: workspace['id'] as String,
+                      child: Text(workspace['name'] as String),
+                    ),
+                  )
+                  .toList(),
               onChanged: _sending ? null : _switchWorkspace,
             ),
           ),
         ),
       ),
-      body: Column(children: [
-        if (_conversations.isNotEmpty)
-          SizedBox(
-            height: 48,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              scrollDirection: Axis.horizontal,
-              itemCount: _conversations.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final conversation = _conversations[index];
-                final id = conversation['id'] as String;
-                return ChoiceChip(
-                  selected: id == _conversationId,
-                  label: Text(conversation['title']?.toString() ?? 'Conversation'),
-                  onSelected: (_) => _selectConversation(id),
-                );
-              },
+      body: Column(
+        children: [
+          if (_conversations.isNotEmpty)
+            SizedBox(
+              height: 48,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                scrollDirection: Axis.horizontal,
+                itemCount: _conversations.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final conversation = _conversations[index];
+                  final id = conversation['id'] as String;
+                  return ChoiceChip(
+                    selected: id == _conversationId,
+                    label: Text(
+                      conversation['title']?.toString() ?? 'Conversation',
+                    ),
+                    onSelected: (_) => _selectConversation(id),
+                  );
+                },
+              ),
             ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(child: Text(_error!))
+                : _messages.isEmpty
+                ? _EmptyChat(onStart: _newConversation)
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) =>
+                        _MessageBubble(message: _messages[index]),
+                  ),
           ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? Center(child: Text(_error!))
-                  : _messages.isEmpty
-                      ? _EmptyChat(onStart: _newConversation)
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) => _MessageBubble(message: _messages[index]),
-                        ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: TextField(
-              controller: _controller,
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                hintText: workspaceId == null ? 'Select a workspace first' : 'Ask across your documents…',
-                suffixIcon: IconButton(onPressed: _sending || workspaceId == null ? null : _send, icon: Icon(_sending ? Icons.hourglass_top : Icons.arrow_upward)),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: TextField(
+                controller: _controller,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: workspaceId == null
+                      ? 'Select a workspace first'
+                      : 'Ask across your documents…',
+                  suffixIcon: IconButton(
+                    onPressed: _sending || workspaceId == null ? null : _send,
+                    icon: Icon(
+                      _sending ? Icons.hourglass_top : Icons.arrow_upward,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -357,43 +450,75 @@ class _MessageBubble extends StatelessWidget {
     final citations = (message['citations'] as List?) ?? const [];
     final failed = message['status'] == 'failed';
     return Align(
-      alignment: isUser ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
+      alignment: isUser
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 720),
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: isUser
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (isUser)
-            Text(content, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary))
-          else if (content.isEmpty)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: LinearProgressIndicator())
-          else
-            MarkdownBody(data: content),
-          if (failed) ...[
-            const SizedBox(height: 8),
-            Text('Generation interrupted', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isUser)
+              Text(
+                content,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              )
+            else if (content.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: LinearProgressIndicator(),
+              )
+            else
+              MarkdownBody(data: content),
+            if (failed) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Generation interrupted',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            if (!isUser && citations.isNotEmpty) ...[
+              const Divider(height: 24),
+              ...citations.map((raw) {
+                final citation = Map<String, dynamic>.from(raw as Map);
+                final page = citation['page_number'];
+                final documentId = citation['document_id']?.toString();
+                return ListTile(
+                  dense: true,
+                  onTap: documentId == null
+                      ? null
+                      : () => context.push(
+                          '/documents/$documentId?page=${page ?? 1}',
+                        ),
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 13,
+                    child: Text('${citation['ordinal'] ?? ''}'),
+                  ),
+                  title: Text(page == null ? 'Source' : 'Source · page $page'),
+                  subtitle: Text(
+                    citation['source_excerpt']?.toString() ?? '',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+            ],
           ],
-          if (!isUser && citations.isNotEmpty) ...[
-            const Divider(height: 24),
-            ...citations.map((raw) {
-              final citation = Map<String, dynamic>.from(raw as Map);
-              final page = citation['page_number'];
-              final documentId = citation['document_id']?.toString();
-              return ListTile(
-                dense: true,
-                onTap: documentId == null ? null : () => context.push('/documents/$documentId?page=${page ?? 1}'),
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(radius: 13, child: Text('${citation['ordinal'] ?? ''}')),
-                title: Text(page == null ? 'Source' : 'Source · page $page'),
-                subtitle: Text(citation['source_excerpt']?.toString() ?? '', maxLines: 3, overflow: TextOverflow.ellipsis),
-              );
-            }),
-          ],
-        ]),
+        ),
       ),
     );
   }
@@ -405,15 +530,26 @@ class _EmptyChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.auto_awesome_outlined, size: 46),
-            const SizedBox(height: 12),
-            Text('Ask questions grounded in your documents', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            FilledButton.icon(onPressed: onStart, icon: const Icon(Icons.add), label: const Text('New conversation')),
-          ]),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome_outlined, size: 46),
+          const SizedBox(height: 12),
+          Text(
+            'Ask questions grounded in your documents',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: onStart,
+            icon: const Icon(Icons.add),
+            label: const Text('New conversation'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

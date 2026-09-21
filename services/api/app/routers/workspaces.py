@@ -98,7 +98,40 @@ def _accept_invitation_record(
     invitation: WorkspaceInvitation,
     user: User,
 ) -> dict:
-    return _accept_invitation_record(db, invitation=invitation, user=user)
+    member = db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == invitation.workspace_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not member:
+        member = WorkspaceMember(
+            workspace_id=invitation.workspace_id,
+            user_id=user.id,
+            role=invitation.role,
+        )
+        db.add(member)
+    elif member.role != "owner":
+        member.role = invitation.role
+
+    now = datetime.now(timezone.utc)
+    invitation.status = "accepted"
+    invitation.accepted_by_id = user.id
+    invitation.responded_at = now
+    write_audit(
+        db,
+        invitation.workspace_id,
+        user.id,
+        "workspace.invitation_accepted",
+        "invitation",
+        invitation.id,
+    )
+    db.commit()
+    workspace = db.get(Workspace, invitation.workspace_id)
+    return {
+        "workspace": _workspace_out(workspace, member.role).model_dump(mode="json") if workspace else None,
+        "invitation": _invitation_payload(invitation, workspace),
+    }
 
 def _active_invitation(db: Session, raw_token: str) -> WorkspaceInvitation:
     invitation = db.scalar(

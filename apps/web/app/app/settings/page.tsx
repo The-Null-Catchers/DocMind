@@ -31,6 +31,8 @@ type Member = {
 };
 type Invitation = {
   id: string;
+  workspace_id?: string;
+  workspace_name?: string | null;
   email: string;
   role: "admin" | "editor" | "viewer";
   status: string;
@@ -52,11 +54,37 @@ export default function SettingsPage() {
     queryFn: () => api<Member[]>(`/workspaces/${workspaceId}/members`),
     enabled: Boolean(workspaceId),
   });
+  const invitationInbox = useQuery({
+    queryKey: ["invitation-inbox"],
+    queryFn: () => api<Invitation[]>("/workspace-invitations"),
+  });
+
   const invitations = useQuery({
     queryKey: ["workspace-invitations", workspaceId],
     queryFn: () => api<Invitation[]>(`/workspaces/${workspaceId}/invitations`),
     enabled: Boolean(workspaceId),
     retry: false,
+  });
+
+  const acceptInvitation = useMutation({
+    mutationFn: (id: string) => api(`/workspace-invitations/${id}/accept`, { method: "POST" }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["invitation-inbox"] }),
+        queryClient.invalidateQueries({ queryKey: ["workspaces"] }),
+      ]);
+      toast.success("Workspace invitation accepted");
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not accept invitation"),
+  });
+
+  const rejectInvitation = useMutation({
+    mutationFn: (id: string) => api<void>(`/workspace-invitations/${id}/reject`, { method: "POST" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["invitation-inbox"] });
+      toast.success("Workspace invitation declined");
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not decline invitation"),
   });
 
   const currentMember = members.data?.find((member) => member.user_id === me.data?.id);
@@ -149,6 +177,23 @@ export default function SettingsPage() {
             </div>)}
             {!sessions.isLoading && sessions.data?.length === 0 && <p className="p-3 text-sm text-ink/45">No sessions found.</p>}
           </div>
+        </div>
+      </section>
+
+      <section className="surface mt-6 p-5">
+        <h2 className="font-medium">Invitations for you</h2>
+        <p className="mt-1 text-sm text-ink/50">Accept or decline workspace invitations sent to your account email.</p>
+        <div className="mt-4 divide-y rounded-xl border">
+          {invitationInbox.isLoading && <p className="p-4 text-sm text-ink/45">Loading invitations…</p>}
+          {invitationInbox.data?.map((invitation) => <div key={invitation.id} className="flex flex-wrap items-center gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{invitation.workspace_name || "Shared workspace"}</p>
+              <p className="text-xs capitalize text-ink/40">{invitation.role} · expires {new Date(invitation.expires_at).toLocaleString()}</p>
+            </div>
+            <button onClick={() => rejectInvitation.mutate(invitation.id)} disabled={rejectInvitation.isPending || acceptInvitation.isPending} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-40">Decline</button>
+            <button onClick={() => acceptInvitation.mutate(invitation.id)} disabled={rejectInvitation.isPending || acceptInvitation.isPending} className="rounded-lg bg-ink px-3 py-1.5 text-xs text-panel disabled:opacity-40">Accept</button>
+          </div>)}
+          {!invitationInbox.isLoading && invitationInbox.data?.length === 0 && <p className="p-4 text-sm text-ink/45">No pending invitations.</p>}
         </div>
       </section>
 

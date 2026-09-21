@@ -70,6 +70,69 @@ def _invitation_payload(invitation: WorkspaceInvitation, workspace: Workspace | 
     }
 
 
+
+
+def _invitation_for_user(
+    db: Session,
+    *,
+    invitation_id: str,
+    user: User,
+) -> WorkspaceInvitation:
+    invitation = db.get(WorkspaceInvitation, invitation_id)
+    if not invitation or invitation.status != "pending":
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    if invitation.email != user.email.lower().strip():
+        raise HTTPException(status_code=403, detail="Invitation belongs to a different email address")
+    now = datetime.now(timezone.utc)
+    if invitation.expires_at.replace(tzinfo=timezone.utc) <= now:
+        invitation.status = "expired"
+        invitation.responded_at = now
+        db.commit()
+        raise HTTPException(status_code=410, detail="Invitation expired")
+    return invitation
+
+
+def _accept_invitation_record(
+    db: Session,
+    *,
+    invitation: WorkspaceInvitation,
+    user: User,
+) -> dict:
+    member = db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == invitation.workspace_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not member:
+        member = WorkspaceMember(
+            workspace_id=invitation.workspace_id,
+            user_id=user.id,
+            role=invitation.role,
+        )
+        db.add(member)
+    elif member.role != "owner":
+        member.role = invitation.role
+
+    now = datetime.now(timezone.utc)
+    invitation.status = "accepted"
+    invitation.accepted_by_id = user.id
+    invitation.responded_at = now
+    write_audit(
+        db,
+        invitation.workspace_id,
+        user.id,
+        "workspace.invitation_accepted",
+        "invitation",
+        invitation.id,
+    )
+    db.commit()
+    workspace = db.get(Workspace, invitation.workspace_id)
+    return {
+        "workspace": _workspace_out(workspace, member.role).model_dump(mode="json") if workspace else None,
+        "invitation": _invitation_payload(invitation, workspace),
+    }
+
 def _active_invitation(db: Session, raw_token: str) -> WorkspaceInvitation:
     invitation = db.scalar(
         select(WorkspaceInvitation).where(
@@ -441,6 +504,71 @@ def reject_invitation(
     invitation = _active_invitation(db, payload.token)
     if invitation.email != user.email.lower().strip():
         raise HTTPException(status_code=403, detail="Invitation belongs to a different email address")
+    invitation.status = "rejected"
+    invitation.responded_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+
+@router.get("/workspace-invitations")
+def invitation_inbox(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    rows = db.scalars(
+        select(WorkspaceInvitation)
+        .where(
+            WorkspaceInvitation.email == user.email.lower().strip(),
+            WorkspaceInvitation.status == "pending",
+        )
+        .order_by(WorkspaceInvitation.created_at.desc())
+        .limit(100)
+    ).all()
+    out: list[dict] = []
+    changed = False
+    for invitation in rows:
+        if invitation.expires_at.replace(tzinfo=timezone.utc) <= now:
+            invitation.status = "expired"
+            invitation.responded_at = now
+            changed = True
+            continue
+        out.append(
+            _invitation_payload(
+                invitation,
+                db.get(Workspace, invitation.workspace_id),
+            )
+        )
+    if changed:
+        db.commit()
+    return out
+
+
+@router.post("/workspace-invitations/{invitation_id}/accept")
+def accept_invitation_by_id(
+    invitation_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    invitation = _invitation_for_user(
+        db,
+        invitation_id=invitation_id,
+        user=user,
+    )
+    return _accept_invitation_record(db, invitation=invitation, user=user)
+
+
+@router.post("/workspace-invitations/{invitation_id}/reject", status_code=204)
+def reject_invitation_by_id(
+    invitation_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    invitation = _invitation_for_user(
+        db,
+        invitation_id=invitation_id,
+        user=user,
+    )
     invitation.status = "rejected"
     invitation.responded_at = datetime.now(timezone.utc)
     db.commit()

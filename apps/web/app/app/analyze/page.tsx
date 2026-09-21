@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Braces, GitCompareArrows, Sparkles } from "lucide-react";
+import { Braces, FileDown, GitCompareArrows, Sparkles } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -48,6 +48,31 @@ export default function AnalyzePage() {
     () => documents.data?.filter((document) => document.status === "ready") ?? [],
     [documents.data],
   );
+
+  const exportResult = useMutation({
+    mutationFn: (kind: "summary_pdf" | "extraction_json" | "extraction_csv") => {
+      if (!workspaceId || !result) throw new Error("No analysis result is available to export.");
+      const title = mode === "summary" ? "DocMind summary" : "DocMind extraction";
+      const payload =
+        kind === "summary_pdf" && "content" in result
+          ? { title, content: result.content }
+          : "data" in result
+            ? { title, data: result.data }
+            : null;
+      if (!payload) throw new Error("This result cannot be exported in the selected format.");
+      return api("/exports", {
+        method: "POST",
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          kind,
+          source_id: null,
+          payload,
+        }),
+      });
+    },
+    onSuccess: () => toast.success("Export queued. Open Exports to download it when ready."),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not queue export"),
+  });
 
   const analyze = useMutation({
     mutationFn: async () => {
@@ -141,7 +166,21 @@ export default function AnalyzePage() {
           </section>
 
           {result && <section className="surface mt-5 p-6">
-            <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Result</h2><span className="text-xs text-ink/40">{citations.length} verified sources</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-semibold">Result</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink/40">{citations.length} verified sources</span>
+                {mode === "summary" && "content" in result && (
+                  <button onClick={() => exportResult.mutate("summary_pdf")} disabled={exportResult.isPending} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-40"><FileDown size={13}/>PDF</button>
+                )}
+                {mode === "extract" && "data" in result && (
+                  <>
+                    <button onClick={() => exportResult.mutate("extraction_json")} disabled={exportResult.isPending} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-40"><FileDown size={13}/>JSON</button>
+                    <button onClick={() => exportResult.mutate("extraction_csv")} disabled={exportResult.isPending} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-40"><FileDown size={13}/>CSV</button>
+                  </>
+                )}
+              </div>
+            </div>
             {"content" in result ? (
               <article className="mt-5 text-sm leading-7"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result.content}</ReactMarkdown></article>
             ) : (

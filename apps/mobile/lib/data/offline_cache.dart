@@ -7,7 +7,8 @@ typedef CacheDirectoryProvider = Future<Directory> Function();
 
 class OfflineCache {
   OfflineCache({CacheDirectoryProvider? directoryProvider})
-      : _directoryProvider = directoryProvider ?? getApplicationDocumentsDirectory;
+    : _directoryProvider =
+          directoryProvider ?? getApplicationDocumentsDirectory;
 
   final CacheDirectoryProvider _directoryProvider;
   String? _accountId;
@@ -21,7 +22,8 @@ class OfflineCache {
     _accountId = null;
   }
 
-  String _safe(String value) => value.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+  String _safe(String value) =>
+      value.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
 
   Future<File?> _file(String key) async {
     final accountId = _accountId;
@@ -53,7 +55,10 @@ class OfflineCache {
   Future<List<Map<String, dynamic>>> readList(String key) async {
     final value = await readJson(key);
     if (value is! List) return [];
-    return value.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    return value
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
   Future<void> append(String key, Map<String, dynamic> item) async {
@@ -74,7 +79,8 @@ class OfflineCache {
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
       final name = entity.path.split(Platform.pathSeparator).last;
-      if (name.startsWith(prefix) && (name.endsWith('.json') || name.endsWith('.json.tmp'))) {
+      if (name.startsWith(prefix) &&
+          (name.endsWith('.json') || name.endsWith('.json.tmp'))) {
         await entity.delete();
       }
     }
@@ -86,7 +92,8 @@ class OfflineCache {
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
       final name = entity.path.split(Platform.pathSeparator).last;
-      if (name.startsWith('docmind_') && (name.endsWith('.json') || name.endsWith('.json.tmp'))) {
+      if (name.startsWith('docmind_') &&
+          (name.endsWith('.json') || name.endsWith('.json.tmp'))) {
         await entity.delete();
       }
     }

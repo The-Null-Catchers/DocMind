@@ -51,6 +51,14 @@ class SelectionActionRequest(BaseModel):
     target_language: str | None = Field(default=None, max_length=40)
 
 
+class TableAskRequest(BaseModel):
+    workspace_id: str
+    document_id: str
+    page_number: int = Field(ge=1)
+    table_index: int = Field(ge=0)
+    question: str = Field(min_length=2, max_length=2000)
+
+
 def _normalize_selection(value: str) -> str:
     value = value.replace("\u00ad", "")
     value = re.sub(r"-\s+(?=\w)", "", value)
@@ -221,6 +229,98 @@ async def selection_action(
         "provider": provider,
         "model": model,
         "citation": citation,
+    }
+
+
+@router.post("/ai/table")
+async def ask_table(
+    payload: TableAskRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_workspace_role(db, payload.workspace_id, user.id, "viewer")
+    document = db.get(Document, payload.document_id)
+    if (
+        not document
+        or document.deleted_at
+        or document.workspace_id != payload.workspace_id
+    ):
+        raise HTTPException(status_code=404, detail="Document not found")
+    page = db.scalar(
+        select(DocumentPage).where(
+            DocumentPage.document_id == payload.document_id,
+            DocumentPage.page_number == payload.page_number,
+        )
+    )
+    if not page:
+        raise HTTPException(status_code=404, detail="Document page not found")
+    tables = page.metadata_json.get("tables", []) if isinstance(page.metadata_json, dict) else []
+    table = next(
+        (
+            item
+            for item in tables
+            if isinstance(item, dict) and item.get("table_index") == payload.table_index
+        ),
+        None,
+    )
+    if table is None:
+        raise HTTPException(status_code=404, detail="Table not found")
+    rows = table.get("rows", [])
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=422, detail="Table has no structured rows")
+    rendered_rows = [
+        " | ".join(str(cell) for cell in row)
+        for row in rows
+        if isinstance(row, list)
+    ]
+    table_text = "\n".join(rendered_rows)[:16000]
+    llm = get_llm_provider()
+    parts: list[str] = []
+    async for part in llm.stream(
+        system=(
+            "Answer using only the supplied structured document table. "
+            "Do not infer facts that are not represented in the table."
+        ),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "[SOURCE TABLE T1]\n"
+                    f"Document: {document.title}\n"
+                    f"Page: {payload.page_number}\n"
+                    f"{table_text}"
+                ),
+            },
+            {"role": "user", "content": payload.question},
+        ],
+    ):
+        parts.append(part)
+    record_usage(
+        db,
+        workspace_id=payload.workspace_id,
+        user_id=user.id,
+        metric="ai_messages",
+        quantity=1,
+        provider=llm.name,
+        model=llm.model,
+        metadata={
+            "feature": "table_question",
+            "document_id": document.id,
+            "page_number": payload.page_number,
+            "table_index": payload.table_index,
+        },
+    )
+    db.commit()
+    return {
+        "content": "".join(parts).strip(),
+        "provider": llm.name,
+        "model": llm.model,
+        "citation": {
+            "document_id": document.id,
+            "page_number": payload.page_number,
+            "table_index": payload.table_index,
+            "source_excerpt": table_text[:1200],
+        },
     }
 
 

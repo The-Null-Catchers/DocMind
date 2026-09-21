@@ -77,10 +77,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: TextField(controller: controller, autofocus: true, decoration: InputDecoration(labelText: label)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: label),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Create')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Create'),
+          ),
         ],
       ),
     );
@@ -112,26 +122,52 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('New saved prompt'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-              const SizedBox(height: 12),
-              TextField(controller: promptController, minLines: 3, maxLines: 8, decoration: const InputDecoration(labelText: 'Prompt')),
-            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: promptController,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(labelText: 'Prompt'),
+                ),
+              ],
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save'),
+              ),
             ],
           ),
         );
-        if (create == true && nameController.text.trim().isNotEmpty && promptController.text.trim().isNotEmpty) {
-          await repo.createPrompt(workspaceId, nameController.text, promptController.text);
+        if (create == true &&
+            nameController.text.trim().isNotEmpty &&
+            promptController.text.trim().isNotEmpty) {
+          await repo.createPrompt(
+            workspaceId,
+            nameController.text,
+            promptController.text,
+          );
         }
         nameController.dispose();
         promptController.dispose();
       }
       await _load();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save library item.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save library item.')),
+        );
     }
   }
 
@@ -142,24 +178,64 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Library'),
-          actions: [IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))],
-          bottom: const TabBar(isScrollable: true, tabs: [
-            Tab(text: 'Collections'),
-            Tab(text: 'Folders'),
-            Tab(text: 'Tags'),
-            Tab(text: 'Prompts'),
-          ]),
+          actions: [
+            IconButton(
+              onPressed: _load,
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+          bottom: const TabBar(
+            isScrollable: true,
+            tabs: [
+              Tab(text: 'Collections'),
+              Tab(text: 'Folders'),
+              Tab(text: 'Tags'),
+              Tab(text: 'Prompts'),
+            ],
+          ),
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_error!), TextButton(onPressed: _load, child: const Text('Retry'))]))
-                : TabBarView(children: [
-                    _ResourceList(items: _collections, icon: Icons.collections_bookmark_outlined, empty: 'No collections yet.', onCreate: () => _create('collection')),
-                    _ResourceList(items: _folders, icon: Icons.folder_outlined, empty: 'No folders yet.', onCreate: () => _create('folder')),
-                    _ResourceList(items: _tags, icon: Icons.sell_outlined, empty: 'No tags yet.', onCreate: () => _create('tag')),
-                    _ResourceList(items: _prompts, icon: Icons.bolt_outlined, empty: 'No saved prompts yet.', onCreate: () => _create('prompt'), subtitleKey: 'prompt'),
-                  ]),
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!),
+                    TextButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            : TabBarView(
+                children: [
+                  _ResourceList(
+                    items: _collections,
+                    icon: Icons.collections_bookmark_outlined,
+                    empty: 'No collections yet.',
+                    onCreate: () => _create('collection'),
+                  ),
+                  _ResourceList(
+                    items: _folders,
+                    icon: Icons.folder_outlined,
+                    empty: 'No folders yet.',
+                    onCreate: () => _create('folder'),
+                  ),
+                  _ResourceList(
+                    items: _tags,
+                    icon: Icons.sell_outlined,
+                    empty: 'No tags yet.',
+                    onCreate: () => _create('tag'),
+                  ),
+                  _ResourceList(
+                    items: _prompts,
+                    icon: Icons.bolt_outlined,
+                    empty: 'No saved prompts yet.',
+                    onCreate: () => _create('prompt'),
+                    subtitleKey: 'prompt',
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -182,30 +258,44 @@ class _ResourceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      if (items.isEmpty)
-        Center(child: Text(empty))
-      else
-        ListView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final subtitle = subtitleKey == null ? item['description']?.toString() : item[subtitleKey]?.toString();
-            return Card(
-              child: ListTile(
-                leading: Icon(icon),
-                title: Text(item['name']?.toString() ?? 'Untitled'),
-                subtitle: subtitle == null || subtitle.isEmpty ? null : Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-              ),
-            );
-          },
+    return Stack(
+      children: [
+        if (items.isEmpty)
+          Center(child: Text(empty))
+        else
+          ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final subtitle = subtitleKey == null
+                  ? item['description']?.toString()
+                  : item[subtitleKey]?.toString();
+              return Card(
+                child: ListTile(
+                  leading: Icon(icon),
+                  title: Text(item['name']?.toString() ?? 'Untitled'),
+                  subtitle: subtitle == null || subtitle.isEmpty
+                      ? null
+                      : Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ),
+              );
+            },
+          ),
+        PositionedDirectional(
+          end: 18,
+          bottom: 18,
+          child: FloatingActionButton.extended(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add),
+            label: const Text('New'),
+          ),
         ),
-      PositionedDirectional(
-        end: 18,
-        bottom: 18,
-        child: FloatingActionButton.extended(onPressed: onCreate, icon: const Icon(Icons.add), label: const Text('New')),
-      ),
-    ]);
+      ],
+    );
   }
 }

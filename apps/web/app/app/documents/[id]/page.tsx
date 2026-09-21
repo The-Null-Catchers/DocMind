@@ -256,7 +256,7 @@ export default function DocumentWorkspacePage() {
                   return (
                     <div key={key} className="rounded-xl border bg-panel p-2">
                       <button onClick={() => goToPage(table.page_number)} className="flex w-full items-center justify-between gap-2 text-left">
-                        <span className="text-[11px] font-semibold">Page {table.page_number} · Table {table.table_index + 1}</span>
+                        <span className="text-[11px] font-semibold">Page {table.page_number} · Table {table.table_index}</span>
                         <span className="text-[10px] text-ink/40">{table.row_count}×{table.column_count}</span>
                       </button>
                       <div className="mt-2 max-h-28 overflow-auto rounded-lg border">

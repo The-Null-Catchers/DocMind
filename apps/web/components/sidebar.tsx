@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch, Search } from "lucide-react";
+import { BookOpen, FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch, Search, FileDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -48,6 +48,7 @@ export function Sidebar() {
     ["/app/notes", NotebookPen, t.notes],
     ["/app/flashcards", Brain, t.flashcards],
     ["/app/quizzes", GraduationCap, t.quizzes],
+    ["/app/exports", FileDown, "Exports"],
   ] as const;
 
   return (

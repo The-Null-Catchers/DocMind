@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquarePlus, MoreHorizontal, Pin, PinOff, Square, Trash2, Pencil, Library } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ function parseSseBlock(block: string): { event: string; data: unknown } | null {
 
 export default function ChatsPage() {
   const workspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -79,9 +81,14 @@ export default function ChatsPage() {
   );
 
   useEffect(() => {
-    if (selectedId || !conversations.data?.length) return;
-    setSelectedId(conversations.data[0].id);
-  }, [conversations.data, selectedId]);
+    if (!conversations.data?.length) return;
+    const requested = searchParams.get("conversation");
+    if (requested && conversations.data.some((conversation) => conversation.id === requested)) {
+      if (selectedId !== requested) setSelectedId(requested);
+      return;
+    }
+    if (!selectedId) setSelectedId(conversations.data[0].id);
+  }, [conversations.data, searchParams, selectedId]);
 
   useEffect(() => {
     if (!selectedId) {

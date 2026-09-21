@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch } from "lucide-react";
+import { BookOpen, FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -42,6 +42,7 @@ export function Sidebar() {
   const links = [
     ["/app", Home, t.home],
     ["/app/documents", FileText, t.documents],
+    ["/app/search", Search, t.search],
     ["/app/chats", MessageSquareText, t.ai],
     ["/app/analyze", ScanSearch, "Analyze"],
     ["/app/notes", NotebookPen, t.notes],

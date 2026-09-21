@@ -53,6 +53,7 @@ function parseSseBlock(block: string): { event: string; data: unknown } | null {
 export default function ChatsPage() {
   const workspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const queryClient = useQueryClient();
+  const [requestedConversation, setRequestedConversation] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -79,9 +80,17 @@ export default function ChatsPage() {
   );
 
   useEffect(() => {
-    if (selectedId || !conversations.data?.length) return;
-    setSelectedId(conversations.data[0].id);
-  }, [conversations.data, selectedId]);
+    setRequestedConversation(new URLSearchParams(window.location.search).get("conversation"));
+  }, []);
+
+  useEffect(() => {
+    if (!conversations.data?.length) return;
+    if (requestedConversation && conversations.data.some((conversation) => conversation.id === requestedConversation)) {
+      if (selectedId !== requestedConversation) setSelectedId(requestedConversation);
+      return;
+    }
+    if (!selectedId) setSelectedId(conversations.data[0].id);
+  }, [conversations.data, requestedConversation, selectedId]);
 
   useEffect(() => {
     if (!selectedId) {

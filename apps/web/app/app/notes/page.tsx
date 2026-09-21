@@ -21,6 +21,7 @@ type Note = {
 export default function NotesPage() {
   const workspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const queryClient = useQueryClient();
+  const [requestedNote, setRequestedNote] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -32,6 +33,17 @@ export default function NotesPage() {
   });
 
   const selected = notes.data?.find((note) => note.id === selectedId) ?? null;
+
+  useEffect(() => {
+    setRequestedNote(new URLSearchParams(window.location.search).get("note"));
+  }, []);
+
+  useEffect(() => {
+    if (requestedNote && notes.data?.some((note) => note.id === requestedNote)) {
+      setSelectedId(requestedNote);
+    }
+  }, [notes.data, requestedNote]);
+
   useEffect(() => {
     if (!selected) return;
     setTitle(selected.title);

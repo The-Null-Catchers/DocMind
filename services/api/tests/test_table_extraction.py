@@ -102,7 +102,7 @@ def test_table_question_is_grounded_and_authorized(client):
             "workspace_id": workspace["id"],
             "document_id": document["id"],
             "page_number": 1,
-            "table_index": 0,
+            "table_index": 1,
             "question": "What revenue is shown?",
         },
     )

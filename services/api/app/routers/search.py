@@ -222,7 +222,7 @@ async def global_search(
             payload.query,
             exact,
         )
-        statement = (
+        conversation_statement = (
             select(Conversation, Message)
             .join(Message, Message.conversation_id == Conversation.id, isouter=True)
             .where(
@@ -234,11 +234,11 @@ async def global_search(
             .limit(per_type * 3)
         )
         if payload.created_after:
-            statement = statement.where(Conversation.created_at >= payload.created_after)
+            conversation_statement = conversation_statement.where(Conversation.created_at >= payload.created_after)
         if payload.created_before:
-            statement = statement.where(Conversation.created_at <= payload.created_before)
+            conversation_statement = conversation_statement.where(Conversation.created_at <= payload.created_before)
         seen: set[str] = set()
-        for conversation, message in db.execute(statement).all():
+        for conversation, message in db.execute(conversation_statement).all():
             if conversation.id in seen:
                 continue
             seen.add(conversation.id)
@@ -266,7 +266,7 @@ async def global_search(
 
     if "notes" in content_types:
         predicates = _text_predicates([Note.title, Note.content_markdown], payload.query, exact)
-        statement = (
+        note_statement = (
             select(Note)
             .where(
                 Note.workspace_id == payload.workspace_id,
@@ -277,10 +277,10 @@ async def global_search(
             .limit(per_type)
         )
         if payload.created_after:
-            statement = statement.where(Note.created_at >= payload.created_after)
+            note_statement = note_statement.where(Note.created_at >= payload.created_after)
         if payload.created_before:
-            statement = statement.where(Note.created_at <= payload.created_before)
-        for note in db.scalars(statement).all():
+            note_statement = note_statement.where(Note.created_at <= payload.created_before)
+        for note in db.scalars(note_statement).all():
             results.append(
                 {
                     "type": "note",
@@ -306,7 +306,7 @@ async def global_search(
             payload.query,
             exact,
         )
-        statement = (
+        flashcard_statement = (
             select(Flashcard, FlashcardDeck)
             .join(FlashcardDeck, FlashcardDeck.id == Flashcard.deck_id)
             .where(
@@ -318,10 +318,10 @@ async def global_search(
             .limit(per_type)
         )
         if payload.created_after:
-            statement = statement.where(Flashcard.created_at >= payload.created_after)
+            flashcard_statement = flashcard_statement.where(Flashcard.created_at >= payload.created_after)
         if payload.created_before:
-            statement = statement.where(Flashcard.created_at <= payload.created_before)
-        for card, deck in db.execute(statement).all():
+            flashcard_statement = flashcard_statement.where(Flashcard.created_at <= payload.created_before)
+        for card, deck in db.execute(flashcard_statement).all():
             results.append(
                 {
                     "type": "flashcard",

@@ -44,6 +44,8 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "editor" | "viewer">("viewer");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => api<User>("/auth/me") });
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: () => api<Session[]>("/auth/sessions") });
@@ -113,6 +115,32 @@ export default function SettingsPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "Could not request verification"),
   });
 
+  const changePassword = useMutation({
+    mutationFn: () => api<void>("/auth/password/change", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    }),
+    onSuccess: async () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      toast.success("Password changed. Other sessions were revoked.");
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not change password"),
+  });
+
+  const logoutAll = useMutation({
+    mutationFn: () => api<void>("/auth/logout-all", { method: "POST" }),
+    onSuccess: () => {
+      logoutLocal();
+      window.location.assign("/login");
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not log out all devices"),
+  });
+
   const revokeSession = useMutation({
     mutationFn: (id: string) => api<void>(`/auth/sessions/${id}`, { method: "DELETE" }),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
@@ -148,6 +176,18 @@ export default function SettingsPage() {
               {!session.revoked && <button onClick={() => revokeSession.mutate(session.id)} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted">Revoke</button>}
             </div>)}
             {!sessions.isLoading && sessions.data?.length === 0 && <p className="p-3 text-sm text-ink/45">No sessions found.</p>}
+          </div>
+        </div>
+
+        <div className="mt-6 border-t pt-5">
+          <h3 className="text-sm font-medium">Change password</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30"/>
+            <input type="password" minLength={10} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" className="rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30"/>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => changePassword.mutate()} disabled={changePassword.isPending || !currentPassword || newPassword.length < 10} className="rounded-xl bg-ink px-4 py-2 text-sm text-panel disabled:opacity-40">Change password</button>
+            <button onClick={() => { if (window.confirm("Log out every active DocMind session?")) logoutAll.mutate(); }} disabled={logoutAll.isPending} className="rounded-xl border px-4 py-2 text-sm hover:bg-muted disabled:opacity-40">Log out all devices</button>
           </div>
         </div>
       </section>

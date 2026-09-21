@@ -2,17 +2,23 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import get_db
-from ..dependencies import get_current_user
+from ..dependencies import get_current_session, get_current_user
 from ..models import AuthToken, Document, User, UserSession, Workspace
 from ..schemas import AuthResponse, LoginRequest, RefreshRequest, RegisterRequest, UserOut
 from ..security import create_access_token, hash_password, hash_refresh_token, new_refresh_token, verify_password
 from ..services.storage import get_storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=10, max_length=200)
 
 
 def _issue_session(db: Session, user: User, request: Request, device_name: str | None = None) -> AuthResponse:
@@ -76,10 +82,54 @@ def refresh(payload: RefreshRequest, request: Request, db: Session = Depends(get
 
 
 @router.post("/logout", status_code=204)
-def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> None:
-    sessions = db.scalars(select(UserSession).where(UserSession.user_id == user.id, UserSession.revoked_at.is_(None))).all()
+def logout(
+    session: UserSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+) -> None:
+    session.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+@router.post("/logout-all", status_code=204)
+def logout_all(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    sessions = db.scalars(
+        select(UserSession).where(
+            UserSession.user_id == user.id,
+            UserSession.revoked_at.is_(None),
+        )
+    ).all()
     now = datetime.now(timezone.utc)
     for session in sessions:
+        session.revoked_at = now
+    db.commit()
+
+
+@router.post("/password/change", status_code=204)
+def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    current_session: UserSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+) -> None:
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    try:
+        user.password_hash = hash_password(payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    now = datetime.now(timezone.utc)
+    other_sessions = db.scalars(
+        select(UserSession).where(
+            UserSession.user_id == user.id,
+            UserSession.id != current_session.id,
+            UserSession.revoked_at.is_(None),
+        )
+    ).all()
+    for session in other_sessions:
         session.revoked_at = now
     db.commit()
 

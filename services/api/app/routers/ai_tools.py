@@ -55,7 +55,7 @@ class TableAskRequest(BaseModel):
     workspace_id: str
     document_id: str
     page_number: int = Field(ge=1)
-    table_index: int = Field(ge=0)
+    table_index: int = Field(ge=1)
     question: str = Field(min_length=2, max_length=2000)
 
 
@@ -258,8 +258,9 @@ async def ask_table(
     table = next(
         (
             item
-            for item in tables
-            if isinstance(item, dict) and item.get("table_index") == payload.table_index
+            for position, item in enumerate(tables, start=1)
+            if isinstance(item, dict)
+            and int(item.get("table_index") or position) == payload.table_index
         ),
         None,
     )

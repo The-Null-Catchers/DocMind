@@ -3,10 +3,11 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..ai.providers import EmbeddingProvider, get_embedding_provider
-from ..models import Document, DocumentChunk, Embedding
+from ..models import Document, DocumentChunk, DocumentTag, Embedding
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,11 @@ class RetrievalService:
         document_ids: list[str] | None = None,
         folder_id: str | None = None,
         exact_phrase: bool = False,
+        mode: str = "hybrid",
+        mime_types: list[str] | None = None,
+        tag_ids: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
         limit: int = 12,
     ) -> list[RetrievalHit]:
         # Workspace predicate is mandatory at the lowest retrieval boundary.
@@ -79,16 +85,36 @@ class RetrievalService:
             statement = statement.where(DocumentChunk.document_id.in_(document_ids))
         if folder_id:
             statement = statement.where(Document.folder_id == folder_id)
+        if mime_types:
+            statement = statement.where(Document.mime_type.in_(mime_types))
+        if tag_ids:
+            statement = statement.where(
+                Document.id.in_(
+                    select(DocumentTag.document_id).where(DocumentTag.tag_id.in_(tag_ids))
+                )
+            )
+        if created_after:
+            statement = statement.where(Document.created_at >= created_after)
+        if created_before:
+            statement = statement.where(Document.created_at <= created_before)
         candidates = self.db.execute(statement.limit(2000)).all()
         query_vector = (await self.embedder.embed([query]))[0]
         ranked: list[RetrievalHit] = []
         for chunk, document, embedding in candidates:
             semantic = _cosine(query_vector, embedding.vector_json) if embedding else 0.0
-            keyword = _keyword_score(query, chunk.text, exact_phrase)
-            if exact_phrase and keyword == 0:
+            effective_exact = exact_phrase or mode == "exact"
+            keyword = _keyword_score(query, chunk.text, effective_exact)
+            if effective_exact and keyword == 0:
                 continue
-            # Weighted hybrid fusion; keyword receives a boost for exact/rare terms.
-            score = (0.68 * semantic) + (0.32 * keyword)
+            if mode == "keyword":
+                score = keyword
+            elif mode == "semantic":
+                score = semantic
+            elif mode == "exact":
+                score = keyword
+            else:
+                # Weighted hybrid fusion; keyword receives a boost for exact/rare terms.
+                score = (0.68 * semantic) + (0.32 * keyword)
             ranked.append(RetrievalHit(
                 chunk_id=chunk.id,
                 document_id=document.id,

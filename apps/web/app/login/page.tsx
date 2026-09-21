@@ -52,9 +52,11 @@ export default function LoginPage() {
           <label className="mt-7 block text-xs font-medium">Email
             <input type="email" required autoComplete="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="mt-2 w-full rounded-xl border bg-panel px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/30"/>
           </label>
-          <label className="mt-4 block text-xs font-medium">Password
-            <input type="password" required autoComplete="current-password" value={password} onChange={(e)=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border bg-panel px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/30"/>
-          </label>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <label className="text-xs font-medium">Password</label>
+            <Link href="/forgot-password" className="text-xs font-medium text-ink/55 hover:text-ink">Forgot password?</Link>
+          </div>
+          <input type="password" required autoComplete="current-password" aria-label="Password" value={password} onChange={(e)=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border bg-panel px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/30"/>
           {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
           <button disabled={busy} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-ink py-2.5 text-sm font-medium text-panel disabled:opacity-60">
             {busy && <Loader2 className="animate-spin" size={15}/>}Sign in

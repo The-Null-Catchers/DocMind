@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Languages, Moon, Search, Sun, Upload } from "lucide-react";
+import Link from "next/link";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -88,6 +89,7 @@ export function Topbar() {
             </button>)}
             {!notifications.isLoading && notifications.data?.items.length === 0 && <p className="p-6 text-center text-sm text-ink/45">No notifications yet.</p>}
           </div>
+          <div className="border-t p-2"><Link href="/app/notifications" className="block rounded-lg px-3 py-2 text-center text-xs font-medium hover:bg-muted">View all notifications</Link></div>
         </div>
       </details>
 

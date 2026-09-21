@@ -285,7 +285,7 @@ async def ask_table(
             {
                 "role": "system",
                 "content": (
-                    "[SOURCE TABLE T1]\n"
+                    "[SOURCE C1]\n"
                     f"Document: {document.title}\n"
                     f"Page: {payload.page_number}\n"
                     f"{table_text}"

@@ -11,14 +11,21 @@ class AuthState {
   const AuthState.loading() : this(status: AuthStatus.loading);
   const AuthState.unauthenticated() : this(status: AuthStatus.unauthenticated);
   const AuthState.authenticated(Map<String, dynamic> user)
-      : this(status: AuthStatus.authenticated, user: user);
+    : this(status: AuthStatus.authenticated, user: user);
 
   final AuthStatus status;
   final Map<String, dynamic>? user;
   final String? error;
 
-  AuthState copyWith({AuthStatus? status, Map<String, dynamic>? user, String? error}) =>
-      AuthState(status: status ?? this.status, user: user ?? this.user, error: error);
+  AuthState copyWith({
+    AuthStatus? status,
+    Map<String, dynamic>? user,
+    String? error,
+  }) => AuthState(
+    status: status ?? this.status,
+    user: user ?? this.user,
+    error: error,
+  );
 }
 
 enum AuthStatus { loading, authenticated, unauthenticated }
@@ -34,7 +41,7 @@ bool _isOfflineAuthError(Object error) =>
 
 class AuthController extends StateNotifier<AuthState> {
   AuthController(this._api, this._cache, this._resetWorkspace)
-      : super(const AuthState.loading()) {
+    : super(const AuthState.loading()) {
     restoreSession();
   }
 
@@ -100,11 +107,14 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState.loading();
     final previousAccountId = await _api.accountId();
     try {
-      final response = await _api.dio.post('/auth/login', data: {
-        'email': email.trim(),
-        'password': password,
-        'device_name': 'DocMind Flutter',
-      });
+      final response = await _api.dio.post(
+        '/auth/login',
+        data: {
+          'email': email.trim(),
+          'password': password,
+          'device_name': 'DocMind Flutter',
+        },
+      );
       final data = Map<String, dynamic>.from(response.data as Map);
       final user = Map<String, dynamic>.from(data['user'] as Map);
       final userId = user['id']?.toString();
@@ -127,21 +137,31 @@ class AuthController extends StateNotifier<AuthState> {
       state = AuthState.authenticated(user);
       return true;
     } catch (error) {
-      state = AuthState(status: AuthStatus.unauthenticated, error: _api.errorMessage(error));
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: _api.errorMessage(error),
+      );
       return false;
     }
   }
 
-  Future<bool> register({required String email, required String password, required String displayName}) async {
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
     state = const AuthState.loading();
     final previousAccountId = await _api.accountId();
     try {
-      final response = await _api.dio.post('/auth/register', data: {
-        'email': email.trim(),
-        'password': password,
-        'display_name': displayName.trim(),
-        'locale': 'en',
-      });
+      final response = await _api.dio.post(
+        '/auth/register',
+        data: {
+          'email': email.trim(),
+          'password': password,
+          'display_name': displayName.trim(),
+          'locale': 'en',
+        },
+      );
       final data = Map<String, dynamic>.from(response.data as Map);
       final user = Map<String, dynamic>.from(data['user'] as Map);
       final userId = user['id']?.toString();
@@ -164,7 +184,10 @@ class AuthController extends StateNotifier<AuthState> {
       state = AuthState.authenticated(user);
       return true;
     } catch (error) {
-      state = AuthState(status: AuthStatus.unauthenticated, error: _api.errorMessage(error));
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: _api.errorMessage(error),
+      );
       return false;
     }
   }
@@ -186,10 +209,12 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(
-    ref.watch(apiClientProvider),
-    ref.watch(offlineCacheProvider),
-    () => ref.read(selectedWorkspaceProvider.notifier).state = null,
-  );
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    return AuthController(
+      ref.watch(apiClientProvider),
+      ref.watch(offlineCacheProvider),
+      () => ref.read(selectedWorkspaceProvider.notifier).state = null,
+    );
+  },
+);

@@ -5,47 +5,58 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiClient {
-  ApiClient({String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000/api/v1')})
-      : _storage = const FlutterSecureStorage(),
-        dio = Dio(BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 60),
-        )) {
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'access_token');
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        final request = error.requestOptions;
-        final isAuthRoute = request.path.contains('/auth/login') ||
-            request.path.contains('/auth/register') ||
-            request.path.contains('/auth/refresh');
-        if (error.response?.statusCode != 401 || isAuthRoute || request.extra['retried'] == true) {
-          handler.next(error);
-          return;
-        }
-
-        try {
-          final refreshed = await _refreshAccessToken();
-          if (!refreshed) {
+  ApiClient({
+    String baseUrl = const String.fromEnvironment(
+      'API_URL',
+      defaultValue: 'http://10.0.2.2:8000/api/v1',
+    ),
+  }) : _storage = const FlutterSecureStorage(),
+       dio = Dio(
+         BaseOptions(
+           baseUrl: baseUrl,
+           connectTimeout: const Duration(seconds: 15),
+           receiveTimeout: const Duration(seconds: 60),
+         ),
+       ) {
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await _storage.read(key: 'access_token');
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+        onError: (error, handler) async {
+          final request = error.requestOptions;
+          final isAuthRoute =
+              request.path.contains('/auth/login') ||
+              request.path.contains('/auth/register') ||
+              request.path.contains('/auth/refresh');
+          if (error.response?.statusCode != 401 ||
+              isAuthRoute ||
+              request.extra['retried'] == true) {
             handler.next(error);
             return;
           }
-          final token = await _storage.read(key: 'access_token');
-          request.extra['retried'] = true;
-          request.headers['Authorization'] = 'Bearer $token';
-          final response = await dio.fetch<dynamic>(request);
-          handler.resolve(response);
-        } catch (_) {
-          handler.next(error);
-        }
-      },
-    ));
+
+          try {
+            final refreshed = await _refreshAccessToken();
+            if (!refreshed) {
+              handler.next(error);
+              return;
+            }
+            final token = await _storage.read(key: 'access_token');
+            request.extra['retried'] = true;
+            request.headers['Authorization'] = 'Bearer $token';
+            final response = await dio.fetch<dynamic>(request);
+            handler.resolve(response);
+          } catch (_) {
+            handler.next(error);
+          }
+        },
+      ),
+    );
   }
 
   final Dio dio;
@@ -73,7 +84,11 @@ class ApiClient {
     await _storage.write(key: 'refresh_token', value: refresh);
   }
 
-  Future<void> saveSession(String access, String refresh, Map<String, dynamic> user) async {
+  Future<void> saveSession(
+    String access,
+    String refresh,
+    Map<String, dynamic> user,
+  ) async {
     await saveTokens(access, refresh);
     await cacheUser(user);
   }
@@ -104,15 +119,23 @@ class ApiClient {
     final refresh = await _storage.read(key: 'refresh_token');
     if (refresh == null || refresh.isEmpty) return false;
 
-    final refreshDio = Dio(BaseOptions(
-      baseUrl: dio.options.baseUrl,
-      connectTimeout: dio.options.connectTimeout,
-      receiveTimeout: dio.options.receiveTimeout,
-    ));
+    final refreshDio = Dio(
+      BaseOptions(
+        baseUrl: dio.options.baseUrl,
+        connectTimeout: dio.options.connectTimeout,
+        receiveTimeout: dio.options.receiveTimeout,
+      ),
+    );
     try {
-      final response = await refreshDio.post('/auth/refresh', data: {'refresh_token': refresh});
+      final response = await refreshDio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refresh},
+      );
       final data = Map<String, dynamic>.from(response.data as Map);
-      await saveTokens(data['access_token'] as String, data['refresh_token'] as String);
+      await saveTokens(
+        data['access_token'] as String,
+        data['refresh_token'] as String,
+      );
       return true;
     } on DioException catch (error) {
       final status = error.response?.statusCode;
@@ -129,9 +152,11 @@ class ApiClient {
       if (detail is Map && detail['detail'] != null) {
         final value = detail['detail'];
         if (value is String) return value;
-        if (value is Map && value['message'] is String) return value['message'] as String;
+        if (value is Map && value['message'] is String)
+          return value['message'] as String;
       }
-      if (error.type == DioExceptionType.connectionError || error.type == DioExceptionType.connectionTimeout) {
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout) {
         return 'Unable to reach DocMind. Check your connection and API URL.';
       }
     }

@@ -24,6 +24,21 @@ def _owned_conversation(db: Session, conversation_id: str, user: User) -> Conver
     return conversation
 
 
+def _persist_interrupted_message(
+    db: Session,
+    *,
+    message_id: str,
+    content: str,
+    status: str,
+) -> None:
+    persisted = db.get(Message, message_id)
+    if not persisted:
+        return
+    persisted.content = content.strip()
+    persisted.status = status
+    db.commit()
+
+
 def _validate_documents(db: Session, workspace_id: str, document_ids: list[str]) -> list[str]:
     if not document_ids:
         return []
@@ -247,19 +262,21 @@ async def stream_message(
             )
         except asyncio.CancelledError:
             db.rollback()
-            persisted = db.get(Message, assistant_message.id)
-            if persisted:
-                persisted.content = partial_content.strip()
-                persisted.status = "cancelled"
-                db.commit()
+            _persist_interrupted_message(
+                db,
+                message_id=assistant_message.id,
+                content=partial_content,
+                status="cancelled",
+            )
             return
         except Exception:
             db.rollback()
-            persisted = db.get(Message, assistant_message.id)
-            if persisted:
-                persisted.content = partial_content.strip()
-                persisted.status = "failed"
-                db.commit()
+            _persist_interrupted_message(
+                db,
+                message_id=assistant_message.id,
+                content=partial_content,
+                status="failed",
+            )
             yield (
                 "event: error\n"
                 f"data: {json.dumps({'message': 'Generation failed'}, ensure_ascii=False)}\n\n"

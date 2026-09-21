@@ -46,8 +46,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - run: npm install --no-audit --no-fund
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -65,8 +68,8 @@ jobs:
           flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
       - run: flutter pub get
-      - name: Apply Dart formatter in CI
-        run: dart format lib test
+      - name: Verify Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --release --build-number=${{ github.run_number }}
@@ -79,3 +82,14 @@ jobs:
           path: |
             apps/mobile/build/app/outputs/flutter-apk/app-release.apk
             apps/mobile/build/app/outputs/bundle/release/app-release.aab
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f Dockerfile.api -t docmind-api:ci .
+      - name: Build worker image
+        run: docker build -f Dockerfile.worker -t docmind-worker:ci .
+      - name: Build web image
+        run: docker build -f Dockerfile.web --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 -t docmind-web:ci .

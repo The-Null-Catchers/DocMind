@@ -162,7 +162,7 @@ export default function DocumentWorkspacePage() {
   function downloadTable(table: DocumentTable) {
     const blob = new Blob([tableCsv(table)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
+    const anchor = window.document.createElement("a");
     anchor.href = url;
     anchor.download = `table-page-${table.page_number}-${table.table_index + 1}.csv`;
     anchor.click();

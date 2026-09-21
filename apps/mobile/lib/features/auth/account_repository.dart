@@ -8,12 +8,18 @@ class AccountRepository {
   final ApiClient _api;
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
-    final response = await _api.dio.post('/auth/password/forgot', data: {'email': email.trim()});
+    final response = await _api.dio.post(
+      '/auth/password/forgot',
+      data: {'email': email.trim()},
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<void> resetPassword(String token, String password) async {
-    await _api.dio.post('/auth/password/reset', data: {'token': token.trim(), 'password': password});
+    await _api.dio.post(
+      '/auth/password/reset',
+      data: {'token': token.trim(), 'password': password},
+    );
   }
 
   Future<Map<String, dynamic>> requestVerification() async {
@@ -22,12 +28,17 @@ class AccountRepository {
   }
 
   Future<void> confirmVerification(String token) async {
-    await _api.dio.post('/auth/email-verification/confirm', data: {'token': token.trim()});
+    await _api.dio.post(
+      '/auth/email-verification/confirm',
+      data: {'token': token.trim()},
+    );
   }
 
   Future<List<Map<String, dynamic>>> sessions() async {
     final response = await _api.dio.get('/auth/sessions');
-    return (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
   }
 
   Future<void> revokeSession(String sessionId) async {
@@ -39,4 +50,6 @@ class AccountRepository {
   }
 }
 
-final accountRepositoryProvider = Provider((ref) => AccountRepository(ref.watch(apiClientProvider)));
+final accountRepositoryProvider = Provider(
+  (ref) => AccountRepository(ref.watch(apiClientProvider)),
+);

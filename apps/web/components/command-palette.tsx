@@ -17,7 +17,7 @@ import { useUI } from "@/store/ui";
 
 const actions = [
   { icon: Upload, label: "Upload file", href: "/app/documents#upload" },
-  { icon: Search, label: "Search documents", href: "/app/documents" },
+  { icon: Search, label: "Search workspace", href: "/app/search" },
   { icon: MessageSquarePlus, label: "Open chats", href: "/app/chats" },
   { icon: NotebookPen, label: "Open notes", href: "/app/notes" },
   { icon: Sparkles, label: "Analyze documents", href: "/app/analyze" },

@@ -226,15 +226,18 @@ export default function ChatsPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["conversations", workspaceId] });
     } catch (error) {
-      if ((error as DOMException)?.name !== "AbortError") {
+      const aborted = (error as DOMException)?.name === "AbortError";
+      if (!aborted) {
         toast.error(error instanceof Error ? error.message : "Generation failed");
-        setMessages((current) => {
-          const next = [...current];
-          const last = next[next.length - 1];
-          if (last?.role === "assistant") next[next.length - 1] = { ...last, status: "failed" };
-          return next;
-        });
       }
+      setMessages((current) => {
+        const next = [...current];
+        const last = next[next.length - 1];
+        if (last?.role === "assistant") {
+          next[next.length - 1] = { ...last, status: aborted ? "cancelled" : "failed" };
+        }
+        return next;
+      });
     } finally {
       abortRef.current = null;
       setSending(false);
@@ -296,6 +299,7 @@ export default function ChatsPage() {
                     </Link>
                   ))}</div>}
                   {message.status === "failed" && <p className="mt-2 text-xs text-red-600">Generation failed. Your question remains in history.</p>}
+                  {message.status === "cancelled" && <p className="mt-2 text-xs text-ink/45">Generation stopped. Partial response preserved.</p>}
                 </div>
               ))}
               <div ref={bottomRef}/>

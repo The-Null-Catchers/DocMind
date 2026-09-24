@@ -55,3 +55,25 @@ def test_upload_rejects_office_container_with_wrong_internal_type():
             fake_docx,
         )
     assert exc.value.status_code == 415
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,capacity",
+    [
+        ("/api/v1/search/global", 60),
+        ("/api/v1/ai/table", 20),
+        ("/api/v1/exports", 20),
+        ("/api/v1/exports/job-1/retry", 10),
+        ("/api/v1/auth/email-verification/request", 5),
+    ],
+)
+async def test_expensive_routes_are_rate_limited(path, capacity):
+    limiter = RateLimiter(Settings(
+        app_env="development",
+        rate_limit_enabled=True,
+        rate_limit_window_seconds=60,
+    ))
+    results = [await limiter.check(_request(path)) for _ in range(capacity + 1)]
+    assert all(allowed for allowed, _ in results[:capacity])
+    assert results[-1][0] is False

@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     public_api_url: str = "http://localhost:8000"
     web_origin: str = "http://localhost:3000"
 
+    email_backend: str = "console"
+    email_from: str = "DocMind <noreply@localhost>"
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: int = 10
+
     storage_backend: str = "local"
     storage_local_dir: str = "./storage"
     s3_endpoint_url: str | None = None
@@ -72,6 +81,12 @@ class Settings(BaseSettings):
             not self.s3_access_key or not self.s3_secret_key
         ):
             raise ValueError("S3 credentials are required when STORAGE_BACKEND=s3")
+        if self.email_backend.lower() != "smtp":
+            raise ValueError("Production EMAIL_BACKEND must be smtp")
+        if not self.smtp_host or not self.email_from:
+            raise ValueError("SMTP_HOST and EMAIL_FROM are required in production")
+        if self.smtp_username and not self.smtp_password:
+            raise ValueError("SMTP_PASSWORD is required when SMTP_USERNAME is configured")
 
         required_llm_keys = {
             "openai": self.openai_api_key,

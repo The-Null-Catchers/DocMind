@@ -144,8 +144,12 @@ export default function DocumentWorkspacePage() {
     return `${table.page_number}:${table.table_index}`;
   }
 
+  function spreadsheetCell(value: string) {
+    return /^\s*[=+@-]/.test(value) ? `'${value}` : value;
+  }
+
   function csvCell(value: string) {
-    const safe = /^[=+@-]/.test(value) ? `'${value}` : value;
+    const safe = spreadsheetCell(value);
     return `"${safe.replaceAll('"', '""')}"`;
   }
 
@@ -155,7 +159,9 @@ export default function DocumentWorkspacePage() {
 
   async function copyTable(table: DocumentTable) {
     await navigator.clipboard.writeText(
-      table.rows.map((row) => row.map((cell) => String(cell ?? "")).join("\t")).join("\n"),
+      table.rows
+        .map((row) => row.map((cell) => spreadsheetCell(String(cell ?? ""))).join("\t"))
+        .join("\n"),
     );
   }
 

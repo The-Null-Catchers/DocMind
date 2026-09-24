@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { CircleAlert, FileText, Loader2, Search } from "lucide-react";
+import { CircleAlert, Copy, Download, FileText, Loader2, MessageSquare, Search, Table2 } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat-panel";
 import { PdfViewer } from "@/components/pdf-viewer";
@@ -41,6 +41,25 @@ type SearchHit = {
   score: number;
 };
 
+type DocumentTable = {
+  page_number: number;
+  table_index: number;
+  row_count: number;
+  column_count: number;
+  truncated: boolean;
+  rows: string[][];
+};
+
+type TableAnswer = {
+  content: string;
+  citation: {
+    document_id: string;
+    page_number: number;
+    table_index: number;
+    source_excerpt: string;
+  };
+};
+
 export default function DocumentWorkspacePage() {
   const params = useParams<{ id: string | string[] }>();
   const router = useRouter();
@@ -53,6 +72,8 @@ export default function DocumentWorkspacePage() {
   const [blobUrl, setBlobUrl] = useState<string>();
   const [highlightText, setHighlightText] = useState("");
   const [selectedText, setSelectedText] = useState("");
+  const [tableAnswers, setTableAnswers] = useState<Record<string, string>>({});
+  const [askingTable, setAskingTable] = useState<string | null>(null);
   const handleSelectionChange = useCallback((text: string | null) => {
     setSelectedText(text ?? "");
   }, []);
@@ -70,6 +91,13 @@ export default function DocumentWorkspacePage() {
   const currentPage = useQuery({
     queryKey: ["document-page", id, page],
     queryFn: () => api<PageData>(`/documents/${id}/pages/${page}`),
+    enabled: Boolean(id) && document.data?.status === "ready",
+    retry: false,
+  });
+
+  const tables = useQuery({
+    queryKey: ["document-tables", id],
+    queryFn: () => api<DocumentTable[]>(`/documents/${id}/tables`),
     enabled: Boolean(id) && document.data?.status === "ready",
     retry: false,
   });
@@ -111,6 +139,68 @@ export default function DocumentWorkspacePage() {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [document.data?.mime_type, document.data?.status, id]);
+
+  function tableKey(table: DocumentTable) {
+    return `${table.page_number}:${table.table_index}`;
+  }
+
+  function spreadsheetCell(value: string) {
+    return /^\s*[=+@-]/.test(value) ? `'${value}` : value;
+  }
+
+  function csvCell(value: string) {
+    const safe = spreadsheetCell(value);
+    return `"${safe.replaceAll('"', '""')}"`;
+  }
+
+  function tableCsv(table: DocumentTable) {
+    return table.rows.map((row) => row.map((cell) => csvCell(String(cell ?? ""))).join(",")).join("\r\n");
+  }
+
+  async function copyTable(table: DocumentTable) {
+    await navigator.clipboard.writeText(
+      table.rows
+        .map((row) => row.map((cell) => spreadsheetCell(String(cell ?? ""))).join("\t"))
+        .join("\n"),
+    );
+  }
+
+  function downloadTable(table: DocumentTable) {
+    const blob = new Blob([tableCsv(table)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = window.document.createElement("a");
+    anchor.href = url;
+    anchor.download = `table-page-${table.page_number}-${table.table_index + 1}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function askAboutTable(table: DocumentTable) {
+    const question = window.prompt("Ask a question about this table");
+    if (!question?.trim()) return;
+    const key = tableKey(table);
+    setAskingTable(key);
+    try {
+      const answer = await api<TableAnswer>("/ai/table", {
+        method: "POST",
+        body: JSON.stringify({
+          workspace_id: document.data!.workspace_id,
+          document_id: id,
+          page_number: table.page_number,
+          table_index: table.table_index,
+          question: question.trim(),
+        }),
+      });
+      setTableAnswers((current) => ({ ...current, [key]: answer.content }));
+    } catch (error) {
+      setTableAnswers((current) => ({
+        ...current,
+        [key]: error instanceof Error ? error.message : "Could not answer this table question.",
+      }));
+    } finally {
+      setAskingTable(null);
+    }
+  }
 
   function goToPage(nextPage: number, chunkId?: string, excerpt?: string) {
     const maxPage = document.data?.page_count ?? nextPage;
@@ -161,6 +251,48 @@ export default function DocumentWorkspacePage() {
               {pageNumbers.length ? <div className="grid grid-cols-4 gap-1 px-1">{pageNumbers.map((number)=><button key={number} onClick={()=>goToPage(number)} className={`rounded-lg px-2 py-2 text-xs ${number === page ? "bg-ink text-panel" : "hover:bg-muted"}`}>{number}</button>)}</div> : <p className="px-2 py-3 text-xs text-ink/40">Page count unavailable.</p>}
             </>}
           </div>
+          {tables.data && tables.data.length > 0 && (
+            <div className="max-h-[46%] overflow-auto border-t p-2">
+              <p className="flex items-center gap-1.5 px-2 py-2 text-[10px] font-semibold uppercase tracking-widest text-ink/40">
+                <Table2 size={12}/>Tables
+              </p>
+              <div className="space-y-2">
+                {tables.data.map((table) => {
+                  const key = tableKey(table);
+                  return (
+                    <div key={key} className="rounded-xl border bg-panel p-2">
+                      <button onClick={() => goToPage(table.page_number)} className="flex w-full items-center justify-between gap-2 text-left">
+                        <span className="text-[11px] font-semibold">Page {table.page_number} · Table {table.table_index}</span>
+                        <span className="text-[10px] text-ink/40">{table.row_count}×{table.column_count}</span>
+                      </button>
+                      <div className="mt-2 max-h-28 overflow-auto rounded-lg border">
+                        <table className="min-w-full border-collapse text-[10px]">
+                          <tbody>
+                            {table.rows.slice(0, 6).map((row, rowIndex) => (
+                              <tr key={rowIndex} className={rowIndex === 0 ? "bg-muted/60 font-medium" : ""}>
+                                {row.map((cell, cellIndex) => (
+                                  <td key={cellIndex} className="max-w-32 truncate border-b border-e px-2 py-1.5" title={String(cell ?? "")}>{String(cell ?? "")}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {table.truncated && <p className="mt-1 text-[9px] text-amber-600">Large table preview is truncated.</p>}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <button onClick={() => void copyTable(table)} className="rounded-md border p-1.5 hover:bg-muted" title="Copy table"><Copy size={12}/></button>
+                        <button onClick={() => downloadTable(table)} className="rounded-md border p-1.5 hover:bg-muted" title="Download CSV"><Download size={12}/></button>
+                        <button onClick={() => void askAboutTable(table)} disabled={askingTable === key} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] hover:bg-muted disabled:opacity-50" title="Ask AI about table">
+                          <MessageSquare size={11}/>{askingTable === key ? "Asking…" : "Ask AI"}
+                        </button>
+                      </div>
+                      {tableAnswers[key] && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/50 p-2 text-[10px] leading-4 text-ink/70">{tableAnswers[key]}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </aside>
       </Panel>
       <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30"/>

@@ -1,5 +1,98 @@
-[
-  {"document":"retrieval.txt","page":1,"text":"Project Cedar launch date: 14 October 2026. The project studies hybrid retrieval quality.","question":"When is Project Cedar launching?","expected_page":1},
-  {"document":"ocr.txt","page":2,"text":"Arabic OCR benchmark accuracy: 93 percent on the synthetic evaluation set.","question":"What accuracy did the OCR benchmark report?","expected_page":2},
-  {"document":"security.txt","page":4,"text":"Workspace isolation requires every retrieval query to include the authorized workspace identifier.","question":"What does workspace isolation require for retrieval?","expected_page":4}
-]
+{
+  "documents": [
+    {
+      "id": "cedar",
+      "workspace": "primary",
+      "document": "cedar.txt",
+      "page": 1,
+      "text": "Project Cedar launch date: 14 October 2026. The study evaluates hybrid retrieval quality for multilingual document search."
+    },
+    {
+      "id": "atlas",
+      "workspace": "primary",
+      "document": "atlas-ar.txt",
+      "page": 2,
+      "text": "مشروع Atlas مخصص لدراسة الوصول إلى المعرفة. الميزانية المعتمدة للمشروع هي 42000 شيكل، ويبدأ في يناير 2027."
+    },
+    {
+      "id": "north-policy",
+      "workspace": "primary",
+      "document": "north-policy.txt",
+      "page": 3,
+      "text": "North policy retention period: 30 days. Records are deleted after the retention period."
+    },
+    {
+      "id": "south-policy",
+      "workspace": "primary",
+      "document": "south-policy.txt",
+      "page": 4,
+      "text": "South policy retention period: 90 days. Records are deleted after the retention period."
+    },
+    {
+      "id": "isolated-secret",
+      "workspace": "isolated",
+      "document": "isolated.txt",
+      "page": 1,
+      "text": "Isolation canary phrase: violet-orbit-7391. This content must never be retrieved from the primary workspace."
+    }
+  ],
+  "cases": [
+    {
+      "id": "english",
+      "workspace": "primary",
+      "question": "When is Project Cedar launching?",
+      "mode": "hybrid",
+      "expected_documents": ["cedar"]
+    },
+    {
+      "id": "arabic-question-english-source",
+      "workspace": "primary",
+      "question": "متى موعد إطلاق Project Cedar؟",
+      "mode": "hybrid",
+      "expected_documents": ["cedar"]
+    },
+    {
+      "id": "english-question-arabic-source",
+      "workspace": "primary",
+      "question": "What is the approved budget for Atlas?",
+      "mode": "hybrid",
+      "expected_documents": ["atlas"]
+    },
+    {
+      "id": "arabic",
+      "workspace": "primary",
+      "question": "ما هي الميزانية المعتمدة لمشروع Atlas؟",
+      "mode": "hybrid",
+      "expected_documents": ["atlas"]
+    },
+    {
+      "id": "mixed-language",
+      "workspace": "primary",
+      "question": "ما الذي يدرسه Project Cedar بخصوص hybrid retrieval quality؟",
+      "mode": "hybrid",
+      "expected_documents": ["cedar"]
+    },
+    {
+      "id": "exact-phrase",
+      "workspace": "primary",
+      "question": "hybrid retrieval quality",
+      "mode": "exact",
+      "expected_documents": ["cedar"]
+    },
+    {
+      "id": "contradictory-multi-document",
+      "workspace": "primary",
+      "question": "Compare the retention period in North policy and South policy.",
+      "mode": "hybrid",
+      "expected_documents": ["north-policy", "south-policy"]
+    },
+    {
+      "id": "unsupported-no-sources",
+      "workspace": "empty",
+      "question": "What is the lunar banana compliance threshold?",
+      "mode": "hybrid",
+      "expected_documents": [],
+      "expected_supported": false
+    }
+  ]
+}

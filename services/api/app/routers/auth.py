@@ -11,6 +11,7 @@ from ..dependencies import get_current_session, get_current_user
 from ..models import AuthToken, Document, User, UserSession, Workspace
 from ..schemas import AuthResponse, LoginRequest, RefreshRequest, RegisterRequest, UserOut
 from ..security import create_access_token, hash_password, hash_refresh_token, new_refresh_token, verify_password
+from ..services.email import send_password_reset_email, send_verification_email
 from ..services.storage import get_storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -152,8 +153,10 @@ def forgot_password(payload: dict, db: Session = Depends(get_db)) -> dict:
             purpose="password_reset",
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         ))
+        db.flush()
+        send_password_reset_email(user.email, raw)
         db.commit()
-        if get_settings().app_env != "production":
+        if get_settings().app_env not in {"production", "staging"}:
             response["dev_token"] = raw
     return response
 
@@ -194,9 +197,11 @@ def request_email_verification(user: User = Depends(get_current_user), db: Sessi
         purpose="email_verify",
         expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
     ))
+    db.flush()
+    send_verification_email(user.email, raw)
     db.commit()
     response = {"message": "Verification instructions queued"}
-    if get_settings().app_env != "production":
+    if get_settings().app_env not in {"production", "staging"}:
         response["dev_token"] = raw
     return response
 

@@ -15,6 +15,7 @@ from ..models import User, Workspace, WorkspaceInvitation, WorkspaceMember
 from ..schemas import WorkspaceCreate, WorkspaceOut
 from ..security import hash_refresh_token, new_refresh_token
 from ..services.audit import write_audit
+from ..services.email import send_workspace_invitation_email
 from ..services.notifications import notify_user
 
 router = APIRouter(tags=["workspaces"])
@@ -385,6 +386,12 @@ def create_invitation(
             data={"workspace_id": workspace_id, "invitation_id": invitation.id},
             preference_key="workspace_invitations",
         )
+    workspace = db.get(Workspace, workspace_id)
+    send_workspace_invitation_email(
+        email=email,
+        workspace_name=workspace.name if workspace else "Shared workspace",
+        role=payload.role,
+    )
     write_audit(
         db,
         workspace_id,
@@ -396,8 +403,8 @@ def create_invitation(
     )
     db.commit()
 
-    response = _invitation_payload(invitation, db.get(Workspace, workspace_id))
-    if get_settings().app_env != "production":
+    response = _invitation_payload(invitation, workspace)
+    if get_settings().app_env not in {"production", "staging"}:
         response["dev_token"] = raw_token
     return response
 
@@ -423,9 +430,15 @@ def resend_invitation(
     invitation.token_hash = hash_refresh_token(raw_token)
     invitation.expires_at = now + timedelta(days=7)
     invitation.last_sent_at = now
+    workspace = db.get(Workspace, workspace_id)
+    send_workspace_invitation_email(
+        email=invitation.email,
+        workspace_name=workspace.name if workspace else "Shared workspace",
+        role=invitation.role,
+    )
     db.commit()
-    response = _invitation_payload(invitation, db.get(Workspace, workspace_id))
-    if get_settings().app_env != "production":
+    response = _invitation_payload(invitation, workspace)
+    if get_settings().app_env not in {"production", "staging"}:
         response["dev_token"] = raw_token
     return response
 

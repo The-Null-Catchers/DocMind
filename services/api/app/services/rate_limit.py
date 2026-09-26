@@ -22,11 +22,14 @@ RULES = [
     RateRule("POST", re.compile(r"^/api/v1/auth/login$"), 10),
     RateRule("POST", re.compile(r"^/api/v1/auth/register$"), 5),
     RateRule("POST", re.compile(r"^/api/v1/auth/password/forgot$"), 5),
+    RateRule("POST", re.compile(r"^/api/v1/auth/email-verification/request$"), 5),
     RateRule("POST", re.compile(r"^/api/v1/documents/upload$"), 20),
     RateRule("POST", re.compile(r"^/api/v1/documents/[^/]+/reprocess$"), 10),
-    RateRule("POST", re.compile(r"^/api/v1/search$"), 60),
+    RateRule("POST", re.compile(r"^/api/v1/search(?:/global)?$"), 60),
     RateRule("POST", re.compile(r"^/api/v1/conversations/[^/]+/messages/stream$"), 30),
-    RateRule("POST", re.compile(r"^/api/v1/(summaries/generate|compare|extract|ai/selection)$"), 20),
+    RateRule("POST", re.compile(r"^/api/v1/(summaries/generate|compare|extract|ai/selection|ai/table)$"), 20),
+    RateRule("POST", re.compile(r"^/api/v1/exports$"), 20),
+    RateRule("POST", re.compile(r"^/api/v1/exports/[^/]+/retry$"), 10),
     RateRule("POST", re.compile(r"^/api/v1/(flashcards|quizzes)/generate$"), 15),
 ]
 

@@ -2,7 +2,7 @@
 
 **DocMind** is a production-oriented AI document workspace for turning private files into searchable, citation-grounded knowledge. It is designed as a real SaaS product rather than a PDF-chat demo: users can organize documents into workspaces, search semantically and lexically, chat across one or many sources, inspect page-level citations, generate summaries, notes, flashcards and quizzes, compare documents, and extract structured data.
 
-> Current status: portfolio-ready foundation with the end-to-end ingestion/RAG architecture, web workspace, Flutter client foundation, Docker environment, deterministic AI test mode, CI, security tests, and technical documentation. Provider adapters and product surfaces are intentionally replaceable and extensible.
+> Current status: production-oriented, portfolio-ready application with end-to-end ingestion/RAG, citation-grounded document chat, structured extraction and table Q&A, web and Flutter clients, exports, collaboration, session/security hardening, deterministic evaluation, Docker, and green CI. Provider adapters remain replaceable so hosted or local AI providers can be swapped without changing product architecture.
 
 ## Product highlights
 
@@ -20,14 +20,6 @@
 - Privacy-conscious admin aggregates, usage/entitlement architecture, audit logs and session management.
 - S3-compatible object storage (MinIO locally), Redis/Celery queues, Docker Compose and optional Ollama.
 - No paid AI credentials required for development or CI.
-
-## Screenshots
-
-> Add portfolio screenshots here after deploying the web/mobile builds.
-
-| Dashboard | Document + AI workspace | Mobile study |
-|---|---|---|
-| `docs/screenshots/dashboard.png` | `docs/screenshots/document-chat.png` | `docs/screenshots/mobile-study.png` |
 
 ## Architecture
 
@@ -184,13 +176,19 @@ DocMind never trusts arbitrary citation text emitted by a model. Source markers 
 python scripts/evaluate_rag.py
 ```
 
-The evaluator uses synthetic, redistributable content and reports:
+The evaluator uses synthetic, redistributable bilingual content and reports:
 
 ```text
 retrieval_accuracy
 citation_accuracy
 unsupported_claim_rate
+mrr
+source_coverage
+workspace_isolation
+evaluated_cases
 ```
+
+Coverage includes English, Arabic, mixed/cross-language retrieval, exact-phrase lookup, contradictory multi-document retrieval, unsupported/no-source behavior, and workspace-isolation canaries.
 
 See [`docs/rag.md`](docs/rag.md) for methodology.
 
@@ -254,9 +252,9 @@ No paid provider keys are used.
 - [Local AI](docs/local-ai.md)
 - [Deployment](docs/deployment.md)
 
-## Roadmap
+## Remaining production integrations
 
-The architecture already reserves clean boundaries for production additions such as provider-specific hosted LLM adapters, richer table/bounding-box extraction, push notifications, team invitations, billing-provider integration, malware scanners, export workers, and advanced learned rerankers.
+The core product is implemented. Deployment-specific integrations that can be added without replacing the existing architecture include provider-specific hosted LLM/embedding adapters, push delivery providers, billing-provider wiring, malware-scanner integration, richer bounding-box extraction, and advanced learned rerankers.
 
 ## License
 

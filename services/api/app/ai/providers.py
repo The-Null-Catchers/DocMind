@@ -103,11 +103,21 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
             embeddings = payload.get("embeddings")
             if not isinstance(embeddings, list):
                 raise RuntimeError("Ollama embedding response is missing embeddings")
-            return [
+            vectors = [
                 [float(value) for value in vector]
                 for vector in embeddings
                 if isinstance(vector, list)
             ]
+            if len(vectors) != len(texts):
+                raise RuntimeError("Ollama embedding response count does not match input count")
+            wrong_dimensions = {len(vector) for vector in vectors if len(vector) != self.dimension}
+            if wrong_dimensions:
+                raise RuntimeError(
+                    "Ollama embedding dimension mismatch: "
+                    f"expected {self.dimension}, received {sorted(wrong_dimensions)}. "
+                    "Use an embedding model that matches EMBEDDING_DIMENSION."
+                )
+            return vectors
 
 
 class MockGroundedLLM(LLMProvider):

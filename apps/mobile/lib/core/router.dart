@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/activity/activity_screen.dart';
 import '../features/ai/ai_screen.dart';
 import '../features/auth/account_screen.dart';
 import '../features/auth/auth_controller.dart';
@@ -48,6 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const PasswordRecoveryScreen(),
       ),
       GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
+      GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
       GoRoute(
         path: '/documents/:id',
         builder: (_, state) => DocumentReaderScreen(

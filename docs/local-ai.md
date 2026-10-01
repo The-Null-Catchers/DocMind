@@ -19,7 +19,7 @@ Start the optional Docker profile and configure models:
 ```bash
 docker compose --profile local-ai up -d
 docker exec -it <ollama-container> ollama pull qwen2.5:7b
-docker exec -it <ollama-container> ollama pull nomic-embed-text
+docker exec -it <ollama-container> ollama pull all-minilm
 ```
 
 ```env
@@ -27,7 +27,7 @@ AI_MODE=local
 LLM_PROVIDER=ollama
 EMBEDDING_PROVIDER=ollama
 OLLAMA_CHAT_MODEL=qwen2.5:7b
-OLLAMA_EMBED_MODEL=nomic-embed-text
+OLLAMA_EMBED_MODEL=all-minilm
 ```
 
 Embedding dimensions must match the configured database vector dimension. Re-embed existing chunks when changing embedding models.

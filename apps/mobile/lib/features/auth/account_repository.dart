@@ -45,6 +45,20 @@ class AccountRepository {
     await _api.dio.delete('/auth/sessions/$sessionId');
   }
 
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    await _api.dio.post(
+      '/auth/password/change',
+      data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
+  }
+
+  Future<void> logoutAll() async {
+    await _api.dio.post('/auth/logout-all');
+  }
+
   Future<void> deleteAccount() async {
     await _api.dio.delete('/auth/account');
   }

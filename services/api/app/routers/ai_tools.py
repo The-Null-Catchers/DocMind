@@ -12,6 +12,7 @@ from ..ai.providers import get_llm_provider
 from ..services.extraction import StructuredExtractionService
 from ..services.rag import RAGService
 from ..services.usage import record_usage
+from ..services.entitlements import require_monthly_capacity
 
 router = APIRouter(tags=["ai-tools"])
 
@@ -206,6 +207,7 @@ async def selection_action(
             "citation": citation,
         }
 
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
     content, provider, model = await _selection_generation(payload)
     record_usage(
         db,
@@ -275,6 +277,7 @@ async def ask_table(
         if isinstance(row, list)
     ]
     table_text = "\n".join(rendered_rows)[:16000]
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
     llm = get_llm_provider()
     parts: list[str] = []
     async for part in llm.stream(
@@ -328,17 +331,25 @@ async def ask_table(
 @router.post("/summaries/generate")
 async def summary(payload: SummaryRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     require_workspace_role(db, payload.workspace_id, user.id, "viewer")
-    result = await RAGService(db).answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=f"Create a {payload.style} summary of the selected documents. Include the important findings and cite every document-derived claim.")
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
+    rag = RAGService(db)
+    result = await rag.answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=f"Create a {payload.style} summary of the selected documents. Include the important findings and cite every document-derived claim.")
+    record_usage(db, workspace_id=payload.workspace_id, user_id=user.id, metric="ai_messages", quantity=1, provider=rag.llm.name, model=rag.llm.model, metadata={"feature": "summary"})
+    db.commit()
     return {"content": result.answer, "citations": [c.__dict__ for c in result.citations]}
 
 
 @router.post("/compare")
 async def compare(payload: CompareRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     require_workspace_role(db, payload.workspace_id, user.id, "viewer")
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
     question = "Compare these documents: identify similarities, differences, contradictions, shared topics, key metrics, and timeline differences."
     if payload.focus:
         question += f" Focus especially on: {payload.focus}."
-    result = await RAGService(db).answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=question)
+    rag = RAGService(db)
+    result = await rag.answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=question)
+    record_usage(db, workspace_id=payload.workspace_id, user_id=user.id, metric="ai_messages", quantity=1, provider=rag.llm.name, model=rag.llm.model, metadata={"feature": "comparison"})
+    db.commit()
     return {"content": result.answer, "citations": [c.__dict__ for c in result.citations]}
 
 

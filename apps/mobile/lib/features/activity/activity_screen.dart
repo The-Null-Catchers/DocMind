@@ -114,9 +114,9 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
             job['filename']?.toString() ?? 'docmind-export',
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export saved to $path')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export saved to $path')));
     } catch (error) {
       _showError(error);
     }
@@ -349,7 +349,8 @@ class _ExportsTab extends StatelessWidget {
                 subtitle: Text(
                   item['status'] == 'failed'
                       ? 'Failed · ' +
-                          (item['error_message']?.toString() ?? 'Unknown error')
+                            (item['error_message']?.toString() ??
+                                'Unknown error')
                       : item['status']?.toString() ?? 'pending',
                 ),
                 trailing: item['status'] == 'ready'

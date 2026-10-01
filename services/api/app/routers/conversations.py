@@ -12,6 +12,7 @@ from ..models import Conversation, ConversationDocument, Document, Message, Mess
 from ..schemas import ChatRequest, ConversationCreate
 from ..services.rag import RAGResult, RAGService
 from ..services.usage import record_usage
+from ..services.entitlements import require_monthly_capacity
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -163,6 +164,7 @@ async def stream_message(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     conversation = _owned_conversation(db, conversation_id, user)
+    require_monthly_capacity(db, conversation.workspace_id, "ai_messages")
     existing_doc_ids = db.scalars(
         select(ConversationDocument.document_id).where(
             ConversationDocument.conversation_id == conversation_id

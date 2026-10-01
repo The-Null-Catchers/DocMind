@@ -21,7 +21,12 @@ class _ActivityAdapter implements HttpClientAdapter {
     if (path == '/notifications') {
       return _json({
         'items': [
-          {'id': 'notification-1', 'title': 'Ready', 'body': 'Document ready', 'read': false},
+          {
+            'id': 'notification-1',
+            'title': 'Ready',
+            'body': 'Document ready',
+            'read': false,
+          },
         ],
         'unread': 1,
       });
@@ -63,42 +68,48 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
   });
 
-  test('activity repository loads notifications invitations and exports', () async {
-    final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
-    final adapter = _ActivityAdapter();
-    api.dio.httpClientAdapter = adapter;
-    final repository = ActivityRepository(api);
+  test(
+    'activity repository loads notifications invitations and exports',
+    () async {
+      final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
+      final adapter = _ActivityAdapter();
+      api.dio.httpClientAdapter = adapter;
+      final repository = ActivityRepository(api);
 
-    final notifications = await repository.notifications();
-    final invitations = await repository.invitations();
-    final exports = await repository.exports('workspace-1');
+      final notifications = await repository.notifications();
+      final invitations = await repository.invitations();
+      final exports = await repository.exports('workspace-1');
 
-    expect(notifications['unread'], 1);
-    expect((notifications['items'] as List).single['id'], 'notification-1');
-    expect(invitations.single['id'], 'invite-1');
-    expect(exports.single['id'], 'export-1');
-    expect(
-      adapter.requests.last.queryParameters['workspace_id'],
-      'workspace-1',
-    );
-  });
+      expect(notifications['unread'], 1);
+      expect((notifications['items'] as List).single['id'], 'notification-1');
+      expect(invitations.single['id'], 'invite-1');
+      expect(exports.single['id'], 'export-1');
+      expect(
+        adapter.requests.last.queryParameters['workspace_id'],
+        'workspace-1',
+      );
+    },
+  );
 
-  test('activity repository accepts and rejects invitations explicitly', () async {
-    final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
-    final adapter = _ActivityAdapter();
-    api.dio.httpClientAdapter = adapter;
-    final repository = ActivityRepository(api);
+  test(
+    'activity repository accepts and rejects invitations explicitly',
+    () async {
+      final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
+      final adapter = _ActivityAdapter();
+      api.dio.httpClientAdapter = adapter;
+      final repository = ActivityRepository(api);
 
-    final accepted = await repository.acceptInvitation('invite-1');
-    await repository.rejectInvitation('invite-1');
+      final accepted = await repository.acceptInvitation('invite-1');
+      await repository.rejectInvitation('invite-1');
 
-    expect((accepted['workspace'] as Map)['id'], 'workspace-2');
-    expect(
-      adapter.requests.map((request) => request.path),
-      containsAll([
-        '/workspace-invitations/invite-1/accept',
-        '/workspace-invitations/invite-1/reject',
-      ]),
-    );
-  });
+      expect((accepted['workspace'] as Map)['id'], 'workspace-2');
+      expect(
+        adapter.requests.map((request) => request.path),
+        containsAll([
+          '/workspace-invitations/invite-1/accept',
+          '/workspace-invitations/invite-1/reject',
+        ]),
+      );
+    },
+  );
 }

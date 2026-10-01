@@ -30,36 +30,42 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
   });
 
-  test('password change sends current and new password to authenticated endpoint', () async {
-    final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
-    final adapter = _RecordingAdapter();
-    api.dio.httpClientAdapter = adapter;
-    final repository = AccountRepository(api);
+  test(
+    'password change sends current and new password to authenticated endpoint',
+    () async {
+      final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
+      final adapter = _RecordingAdapter();
+      api.dio.httpClientAdapter = adapter;
+      final repository = AccountRepository(api);
 
-    await repository.changePassword('current-secret', 'new-secret-long-enough');
+      await repository.changePassword(
+        'current-secret',
+        'new-secret-long-enough',
+      );
 
-    expect(adapter.requests, hasLength(1));
-    expect(adapter.requests.single.method, 'POST');
-    expect(adapter.requests.single.path, '/auth/password/change');
-    expect(
-      adapter.requests.single.data,
-      {
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests.single.method, 'POST');
+      expect(adapter.requests.single.path, '/auth/password/change');
+      expect(adapter.requests.single.data, {
         'current_password': 'current-secret',
         'new_password': 'new-secret-long-enough',
-      },
-    );
-  });
+      });
+    },
+  );
 
-  test('logout all uses the explicit all-session revocation endpoint', () async {
-    final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
-    final adapter = _RecordingAdapter();
-    api.dio.httpClientAdapter = adapter;
-    final repository = AccountRepository(api);
+  test(
+    'logout all uses the explicit all-session revocation endpoint',
+    () async {
+      final api = ApiClient(baseUrl: 'https://docmind.test/api/v1');
+      final adapter = _RecordingAdapter();
+      api.dio.httpClientAdapter = adapter;
+      final repository = AccountRepository(api);
 
-    await repository.logoutAll();
+      await repository.logoutAll();
 
-    expect(adapter.requests, hasLength(1));
-    expect(adapter.requests.single.method, 'POST');
-    expect(adapter.requests.single.path, '/auth/logout-all');
-  });
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests.single.method, 'POST');
+      expect(adapter.requests.single.path, '/auth/logout-all');
+    },
+  );
 }

@@ -485,12 +485,13 @@ class ActivityRepository {
     final bytes = response.data ?? const <int>[];
     final directory = await getApplicationDocumentsDirectory();
     final safeName = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
-    final file = File('${directory.path}/${safeName.isEmpty ? 'docmind-export' : safeName}');
+    final file = File(
+      '${directory.path}/${safeName.isEmpty ? 'docmind-export' : safeName}',
+    );
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
 }
-
 
 final workspaceRepositoryProvider = Provider(
   (ref) => WorkspaceRepository(

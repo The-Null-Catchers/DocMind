@@ -128,7 +128,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               TextField(
                 controller: currentPassword,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -140,7 +142,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               TextField(
                 controller: confirmPassword,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Confirm new password'),
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                ),
               ),
             ],
           ),
@@ -189,7 +193,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ref.read(apiClientProvider).errorMessage(error))),
+          SnackBar(
+            content: Text(ref.read(apiClientProvider).errorMessage(error)),
+          ),
         );
       }
     } finally {

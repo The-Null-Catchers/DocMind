@@ -54,9 +54,9 @@ test("critical grounded document workflow", async ({ page }) => {
   await expect(page.getByText("cedar-source", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText("Ready", { exact: true })).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(
+    page.locator("span").filter({ hasText: /^Ready$/ }).first(),
+  ).toBeVisible({ timeout: 60_000 });
 
   await page.getByText("cedar-source", { exact: true }).click();
   await expect(page.locator(".react-pdf__Page__textContent span").first()).toBeVisible({

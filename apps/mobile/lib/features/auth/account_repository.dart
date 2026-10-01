@@ -45,13 +45,13 @@ class AccountRepository {
     await _api.dio.delete('/auth/sessions/$sessionId');
   }
 
-  Future<void> changePassword(String currentPassword, String newPassword) async {
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
     await _api.dio.post(
       '/auth/password/change',
-      data: {
-        'current_password': currentPassword,
-        'new_password': newPassword,
-      },
+      data: {'current_password': currentPassword, 'new_password': newPassword},
     );
   }
 

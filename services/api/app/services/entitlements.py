@@ -21,7 +21,7 @@ class PlanEntitlements:
 
 
 PLANS = {
-    "free": PlanEntitlements(50, 1_000_000_000, 500, 300, 100, 1, False),
+    "free": PlanEntitlements(50, 1_000_000_000, 500, 300, 100, 3, False),
     "pro": PlanEntitlements(2_000, 100_000_000_000, 20_000, 10_000, 5_000, 5, True),
     "team": PlanEntitlements(20_000, 1_000_000_000_000, 200_000, 100_000, 50_000, 100, True),
 }

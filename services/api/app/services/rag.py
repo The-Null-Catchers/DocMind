@@ -50,9 +50,15 @@ class _CitationDeltaSanitizer:
 
 
 class RAGService:
-    def __init__(self, db: Session, llm: LLMProvider | None = None):
+    def __init__(
+        self,
+        db: Session,
+        llm: LLMProvider | None = None,
+        *,
+        task: str | None = None,
+    ):
         self.db = db
-        self.llm = llm or get_llm_provider()
+        self.llm = llm or get_llm_provider(task=task)
         self.retrieval = RetrievalService(db)
         self.reranker: RerankerProvider = get_reranker_provider()
 

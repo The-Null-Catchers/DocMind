@@ -57,15 +57,28 @@ def _month_start() -> datetime:
     return datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
 
-def monthly_usage(db: Session, workspace_id: str, metric: str) -> float:
-    value = db.scalar(
-        select(func.coalesce(func.sum(UsageRecord.quantity), 0.0)).where(
+def monthly_usage(
+    db: Session,
+    workspace_id: str,
+    metric: str,
+    *,
+    exclude_document_id: str | None = None,
+) -> float:
+    rows = db.scalars(
+        select(UsageRecord).where(
             UsageRecord.workspace_id == workspace_id,
             UsageRecord.metric == metric,
             UsageRecord.created_at >= _month_start(),
         )
+    ).all()
+    return sum(
+        float(row.quantity)
+        for row in rows
+        if not (
+            exclude_document_id
+            and (row.metadata_json or {}).get("document_id") == exclude_document_id
+        )
     )
-    return float(value or 0.0)
 
 
 def require_monthly_capacity(
@@ -74,6 +87,7 @@ def require_monthly_capacity(
     metric: str,
     *,
     quantity: float = 1,
+    exclude_document_id: str | None = None,
 ) -> None:
     _plan, limits = workspace_plan(db, workspace_id)
     limit_by_metric = {
@@ -84,7 +98,12 @@ def require_monthly_capacity(
     if metric not in limit_by_metric:
         raise ValueError(f"Unsupported entitlement metric: {metric}")
     limit = float(limit_by_metric[metric])
-    current = monthly_usage(db, workspace_id, metric)
+    current = monthly_usage(
+        db,
+        workspace_id,
+        metric,
+        exclude_document_id=exclude_document_id,
+    )
     if current + quantity > limit:
         raise EntitlementExceeded(
             metric=metric,

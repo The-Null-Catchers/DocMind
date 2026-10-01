@@ -69,7 +69,9 @@ jobs:
           rm -f test/widget_test.dart
       - run: flutter pub get
       - name: Verify Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+        run: |
+          dart format lib test
+          git diff --exit-code -- lib test
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --release --build-number=${{ github.run_number }}

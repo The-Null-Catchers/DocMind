@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_chat_model: str = "qwen2.5:7b"
-    ollama_embed_model: str = "nomic-embed-text"
+    ollama_embed_model: str = "all-minilm"
     openai_api_key: str | None = None
     gemini_api_key: str | None = None
     anthropic_api_key: str | None = None

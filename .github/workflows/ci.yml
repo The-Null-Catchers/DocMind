@@ -93,3 +93,22 @@ jobs:
         run: docker build -f Dockerfile.worker -t docmind-worker:ci .
       - name: Build web image
         run: docker build -f Dockerfile.web --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 -t docmind-web:ci .
+      - name: Validate Docker Compose stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --build postgres redis minio minio-init api worker web
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:8000/ready >/tmp/docmind-ready.json; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/docmind-ready.json
+          curl -fsS http://localhost:8000/ready
+          curl -fsS http://localhost:3000 >/dev/null
+      - name: Show Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=250
+      - name: Stop Compose stack
+        if: always()
+        run: docker compose down -v

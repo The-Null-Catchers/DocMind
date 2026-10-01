@@ -112,6 +112,126 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
+  Future<void> _changePassword() async {
+    final currentPassword = TextEditingController();
+    final newPassword = TextEditingController();
+    final confirmPassword = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change password'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentPassword,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Current password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPassword,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'New password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPassword,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Confirm new password'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Change password'),
+          ),
+        ],
+      ),
+    );
+    if (submitted != true) {
+      currentPassword.dispose();
+      newPassword.dispose();
+      confirmPassword.dispose();
+      return;
+    }
+    if (newPassword.text != confirmPassword.text) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('New passwords do not match.')),
+        );
+      }
+      currentPassword.dispose();
+      newPassword.dispose();
+      confirmPassword.dispose();
+      return;
+    }
+    try {
+      await ref
+          .read(accountRepositoryProvider)
+          .changePassword(currentPassword.text, newPassword.text);
+      await _loadSessions();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password changed. Other sessions were revoked.'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.read(apiClientProvider).errorMessage(error))),
+        );
+      }
+    } finally {
+      currentPassword.dispose();
+      newPassword.dispose();
+      confirmPassword.dispose();
+    }
+  }
+
+  Future<void> _logoutAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out all devices?'),
+        content: const Text(
+          'Every DocMind session, including this device, will be revoked.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign out all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(accountRepositoryProvider).logoutAll();
+      await ref.read(authControllerProvider.notifier).logout();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ref.read(apiClientProvider).errorMessage(error))),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -243,10 +363,22 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               }),
             const SizedBox(height: 24),
             OutlinedButton.icon(
+              onPressed: _changePassword,
+              icon: const Icon(Icons.password_outlined),
+              label: const Text('Change password'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _logoutAll,
+              icon: const Icon(Icons.phonelink_erase_outlined),
+              label: const Text('Sign out all devices'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: () =>
                   ref.read(authControllerProvider.notifier).logout(),
               icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
+              label: const Text('Sign out this device'),
             ),
             const SizedBox(height: 12),
             TextButton.icon(

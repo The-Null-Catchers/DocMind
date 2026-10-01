@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import literal_column, or_, select, text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import bindparam, cast, literal_column, or_, select, text
 from sqlalchemy.orm import Session
 
 from ..ai.providers import EmbeddingProvider, get_embedding_provider
@@ -97,8 +98,12 @@ class RetrievalService:
     ) -> tuple[list[tuple[DocumentChunk, Document, float]], list[float]]:
         query_vector = (await self.embedder.embed([query]))[0]
         vector_literal = "[" + ",".join(f"{value:.8f}" for value in query_vector) + "]"
-        distance: Any = literal_column(
-            "embeddings.vector_native <=> CAST(:query_vector AS vector)"
+        query_vector_param = cast(
+            bindparam("query_vector"),
+            Vector(self.embedder.dimension),
+        )
+        distance: Any = literal_column("embeddings.vector_native").op("<=>")(
+            query_vector_param
         )
         candidate_limit = max(200, limit * 40)
         statement = (

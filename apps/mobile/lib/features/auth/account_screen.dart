@@ -232,7 +232,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ref.read(apiClientProvider).errorMessage(error))),
+          SnackBar(
+            content: Text(ref.read(apiClientProvider).errorMessage(error)),
+          ),
         );
       }
     }

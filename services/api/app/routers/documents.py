@@ -15,6 +15,7 @@ from ..services.storage import get_storage
 from ..services.malware import get_malware_scanner
 from ..services.upload import validate_upload
 from ..services.queueing import enqueue_document_processing
+from ..services.entitlements import require_document_capacity
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -123,6 +124,7 @@ async def upload_document(
     ))
     if existing:
         raise HTTPException(status_code=409, detail={"message": "Document already exists", "document_id": existing.id})
+    require_document_capacity(db, workspace_id, incoming_bytes=validated.size)
     doc_id = str(uuid.uuid4())
     key = f"workspaces/{workspace_id}/documents/{doc_id}/{validated.safe_name}"
     get_storage().put_bytes(key, data, validated.mime_type)

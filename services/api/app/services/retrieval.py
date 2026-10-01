@@ -4,6 +4,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import literal_column, or_, select, text
 from sqlalchemy.orm import Session
@@ -96,7 +97,7 @@ class RetrievalService:
     ) -> tuple[list[tuple[DocumentChunk, Document, float]], list[float]]:
         query_vector = (await self.embedder.embed([query]))[0]
         vector_literal = "[" + ",".join(f"{value:.8f}" for value in query_vector) + "]"
-        distance = literal_column(
+        distance: Any = literal_column(
             "embeddings.vector_native <=> CAST(:query_vector AS vector)"
         )
         candidate_limit = max(200, limit * 40)
@@ -187,13 +188,13 @@ class RetrievalService:
 
         ranked: list[RetrievalHit] = []
         if is_postgres and mode in {"semantic", "hybrid"} and not effective_exact:
-            candidates, _query_vector = await self._postgres_candidates(
+            postgres_candidates, _query_vector = await self._postgres_candidates(
                 query=query,
                 filters=filters,
                 mode=mode,
                 limit=limit,
             )
-            for chunk, document, semantic in candidates:
+            for chunk, document, semantic in postgres_candidates:
                 keyword = _keyword_score(query, chunk.text, False)
                 score = semantic if mode == "semantic" else (0.68 * semantic) + (0.32 * keyword)
                 ranked.append(
@@ -222,12 +223,12 @@ class RetrievalService:
                 .where(*filters)
                 .limit(2000)
             )
-            candidates = self.db.execute(statement).all()
+            portable_candidates = self.db.execute(statement).all()
             query_vector: list[float] | None = None
             if mode in {"semantic", "hybrid"}:
                 query_vector = (await self.embedder.embed([query]))[0]
 
-            for chunk, document, embedding in candidates:
+            for chunk, document, embedding in portable_candidates:
                 semantic = (
                     _cosine(query_vector, embedding.vector_json)
                     if query_vector is not None and embedding

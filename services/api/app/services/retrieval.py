@@ -97,7 +97,6 @@ class RetrievalService:
         limit: int,
     ) -> tuple[list[tuple[DocumentChunk, Document, float]], list[float]]:
         query_vector = (await self.embedder.embed([query]))[0]
-        vector_literal = "[" + ",".join(f"{value:.8f}" for value in query_vector) + "]"
         query_vector_param = cast(
             bindparam("query_vector"),
             Vector(self.embedder.dimension),
@@ -121,7 +120,7 @@ class RetrievalService:
         )
         semantic_rows = self.db.execute(
             statement,
-            {"query_vector": vector_literal},
+            {"query_vector": query_vector},
         ).all()
         candidates: dict[str, tuple[DocumentChunk, Document, float]] = {
             chunk.id: (chunk, document, max(-1.0, 1.0 - float(distance_value)))

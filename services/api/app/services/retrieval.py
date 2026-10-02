@@ -8,6 +8,7 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import bindparam, cast, literal_column, or_, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..ai.providers import EmbeddingProvider, get_embedding_provider
@@ -119,14 +120,42 @@ class RetrievalService:
             .order_by(distance.asc())
             .limit(candidate_limit)
         )
-        semantic_rows = self.db.execute(
-            statement,
-            {"query_vector": query_vector},
-        ).all()
+        try:
+            semantic_rows = self.db.execute(
+                statement,
+                {"query_vector": query_vector},
+            ).all()
+        except SQLAlchemyError:
+            # Keep retrieval available during pgvector rollout/backfill issues.
+            # The portable JSON embedding remains the source of truth fallback.
+            self.db.rollback()
+            semantic_rows = []
+
         candidates: dict[str, tuple[DocumentChunk, Document, float]] = {
             chunk.id: (chunk, document, max(-1.0, 1.0 - float(distance_value)))
             for chunk, document, distance_value in semantic_rows
         }
+
+        if not candidates:
+            portable_statement = (
+                select(DocumentChunk, Document, Embedding)
+                .join(Document, Document.id == DocumentChunk.document_id)
+                .join(
+                    Embedding,
+                    (Embedding.chunk_id == DocumentChunk.id)
+                    & (Embedding.provider == self.embedder.name)
+                    & (Embedding.model == self.embedder.model),
+                )
+                .where(*filters)
+                .limit(candidate_limit)
+            )
+            portable_rows = self.db.execute(portable_statement).all()
+            for chunk, document, embedding in portable_rows:
+                candidates[chunk.id] = (
+                    chunk,
+                    document,
+                    _cosine(query_vector, embedding.vector_json),
+                )
 
         if mode == "hybrid":
             terms = list(

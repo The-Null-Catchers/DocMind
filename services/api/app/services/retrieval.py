@@ -97,6 +97,7 @@ class RetrievalService:
         limit: int,
     ) -> tuple[list[tuple[DocumentChunk, Document, float]], list[float]]:
         query_vector = (await self.embedder.embed([query]))[0]
+        # Bind the numeric list directly so pgvector/psycopg can serialize it safely.
         query_vector_param = cast(
             bindparam("query_vector"),
             Vector(self.embedder.dimension),

@@ -120,6 +120,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: const Text('DocMind'),
             actions: [
               IconButton(
+                onPressed: () => context.push('/activity'),
+                tooltip: 'Notifications, invitations, and exports',
+                icon: const Icon(Icons.notifications_none_outlined),
+              ),
+              IconButton(
                 onPressed: _createWorkspace,
                 tooltip: 'Create workspace',
                 icon: const Icon(Icons.add_business_outlined),

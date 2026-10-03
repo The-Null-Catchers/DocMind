@@ -35,8 +35,8 @@ export function Sidebar() {
     enabled: Boolean(activeWorkspaceId),
   });
   const selected = workspaces.data?.find((workspace) => workspace.id === activeWorkspaceId);
-  const pages = Number(usage.data?.usage.pages_processed ?? 0);
-  const pageLimit = Number(usage.data?.limits.pages_processed ?? usage.data?.limits.pages ?? 0);
+  const pages = Number(usage.data?.usage.processed_pages ?? 0);
+  const pageLimit = Number(usage.data?.limits.max_pages_month ?? 0);
   const pct = pageLimit > 0 ? Math.min(100, (pages / pageLimit) * 100) : 0;
 
   const links = [

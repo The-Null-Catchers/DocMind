@@ -93,3 +93,39 @@ jobs:
         run: docker build -f Dockerfile.worker -t docmind-worker:ci .
       - name: Build web image
         run: docker build -f Dockerfile.web --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 -t docmind-web:ci .
+      - name: Validate Docker Compose stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --build postgres redis minio minio-init api worker web
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:8000/ready >/tmp/docmind-ready.json; then
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/docmind-ready.json
+          curl -fsS http://localhost:8000/ready
+          curl -fsS http://localhost:3000 >/dev/null
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install browser E2E runner
+        working-directory: apps/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false @playwright/test@1.51.1
+          npx playwright install --with-deps chromium
+      - name: Run critical browser E2E
+        working-directory: apps/web
+        env:
+          WEB_BASE_URL: http://localhost:3000
+          API_BASE_URL: http://localhost:8000/api/v1
+        run: npx playwright test
+      - name: Show Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=250
+      - name: Stop Compose stack
+        if: always()
+        run: docker compose down -v

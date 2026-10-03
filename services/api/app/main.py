@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .config import get_settings
 from .services.rate_limit import RateLimiter
+from .services.entitlements import EntitlementExceeded
 from .routers import admin, ai_tools, auth, conversations, dashboard, documents, exports, health, library, notifications, search, study, usage, workspaces
 
 settings = get_settings()
@@ -45,6 +46,23 @@ async def request_context(request: Request, call_next):  # type: ignore[no-untyp
     response.headers["x-frame-options"] = "DENY"
     response.headers["referrer-policy"] = "strict-origin-when-cross-origin"
     return response
+
+
+@app.exception_handler(EntitlementExceeded)
+async def entitlement_error_handler(_request: Request, exc: EntitlementExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": {
+                "code": "entitlement_exceeded",
+                "message": str(exc),
+                "metric": exc.metric,
+                "current": exc.current,
+                "requested": exc.requested,
+                "limit": exc.limit,
+            }
+        },
+    )
 
 
 @app.exception_handler(ValueError)

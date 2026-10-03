@@ -179,20 +179,48 @@ def main() -> None:
     if not workspace_isolation_ok:
         raise SystemExit("workspace_isolation=FAILED")
 
-    print(f"retrieval_accuracy={_ratio(retrieval_passes, retrieval_cases):.3f}")
-    print(f"citation_accuracy={_ratio(valid_citations, total_citations):.3f}")
-    print(
-        "unsupported_claim_rate="
-        f"{_ratio(unsupported_with_citations, unsupported_cases):.3f}"
-    )
-    print(f"mrr={_ratio(reciprocal_rank_total, retrieval_cases):.3f}")
-    print(
-        "source_coverage="
-        f"{_ratio(retrieved_source_count, expected_source_count):.3f}"
-    )
+    retrieval_accuracy = _ratio(retrieval_passes, retrieval_cases)
+    citation_accuracy = _ratio(valid_citations, total_citations)
+    unsupported_claim_rate = _ratio(unsupported_with_citations, unsupported_cases)
+    mrr = _ratio(reciprocal_rank_total, retrieval_cases)
+    source_coverage = _ratio(retrieved_source_count, expected_source_count)
+
+    print(f"retrieval_accuracy={retrieval_accuracy:.3f}")
+    print(f"citation_accuracy={citation_accuracy:.3f}")
+    print(f"unsupported_claim_rate={unsupported_claim_rate:.3f}")
+    print(f"mrr={mrr:.3f}")
+    print(f"source_coverage={source_coverage:.3f}")
     print("workspace_isolation=1.000")
     print(f"evaluated_cases={len(cases)}")
+
+    thresholds = {
+        "retrieval_accuracy": float(os.getenv("RAG_EVAL_MIN_RETRIEVAL", "0.70")),
+        "citation_accuracy": float(os.getenv("RAG_EVAL_MIN_CITATION", "0.70")),
+        "unsupported_claim_rate": float(os.getenv("RAG_EVAL_MAX_UNSUPPORTED", "0.25")),
+        "source_coverage": float(os.getenv("RAG_EVAL_MIN_SOURCE_COVERAGE", "0.70")),
+    }
+    failures: list[str] = []
+    if retrieval_accuracy < thresholds["retrieval_accuracy"]:
+        failures.append(
+            f"retrieval_accuracy {retrieval_accuracy:.3f} < {thresholds['retrieval_accuracy']:.3f}"
+        )
+    if citation_accuracy < thresholds["citation_accuracy"]:
+        failures.append(
+            f"citation_accuracy {citation_accuracy:.3f} < {thresholds['citation_accuracy']:.3f}"
+        )
+    if unsupported_claim_rate > thresholds["unsupported_claim_rate"]:
+        failures.append(
+            "unsupported_claim_rate "
+            f"{unsupported_claim_rate:.3f} > {thresholds['unsupported_claim_rate']:.3f}"
+        )
+    if source_coverage < thresholds["source_coverage"]:
+        failures.append(
+            f"source_coverage {source_coverage:.3f} < {thresholds['source_coverage']:.3f}"
+        )
+
     db.close()
+    if failures:
+        raise SystemExit("RAG evaluation thresholds failed: " + "; ".join(failures))
 
 
 if __name__ == "__main__":

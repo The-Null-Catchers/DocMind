@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from ..ai.providers import get_llm_provider
 from ..services.extraction import StructuredExtractionService
 from ..services.rag import RAGService
 from ..services.usage import record_usage
+from ..services.entitlements import require_monthly_capacity
 
 router = APIRouter(tags=["ai-tools"])
 
@@ -109,7 +111,9 @@ async def _selection_generation(payload: SelectionActionRequest) -> tuple[str, s
         ),
         "ask": payload.question or "Answer what this selection means using only the selected text.",
     }
-    llm = get_llm_provider()
+    llm = get_llm_provider(
+        task="selection_rewrite" if payload.action == "rewrite" else "selection"
+    )
     source_context = (
         "[SOURCE C1]\n"
         f"Document: {payload.document_id}\n"
@@ -206,7 +210,10 @@ async def selection_action(
             "citation": citation,
         }
 
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
+    started = time.perf_counter()
     content, provider, model = await _selection_generation(payload)
+    latency_ms = (time.perf_counter() - started) * 1000
     record_usage(
         db,
         workspace_id=payload.workspace_id,
@@ -220,6 +227,7 @@ async def selection_action(
             "action": payload.action,
             "document_id": payload.document_id,
             "page_number": payload.page_number,
+            "latency_ms": round(latency_ms, 2),
         },
     )
     db.commit()
@@ -275,7 +283,9 @@ async def ask_table(
         if isinstance(row, list)
     ]
     table_text = "\n".join(rendered_rows)[:16000]
-    llm = get_llm_provider()
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
+    llm = get_llm_provider(task="table_question")
+    started = time.perf_counter()
     parts: list[str] = []
     async for part in llm.stream(
         system=(
@@ -296,6 +306,7 @@ async def ask_table(
         ],
     ):
         parts.append(part)
+    latency_ms = (time.perf_counter() - started) * 1000
     record_usage(
         db,
         workspace_id=payload.workspace_id,
@@ -309,6 +320,7 @@ async def ask_table(
             "document_id": document.id,
             "page_number": payload.page_number,
             "table_index": payload.table_index,
+            "latency_ms": round(latency_ms, 2),
         },
     )
     db.commit()
@@ -328,17 +340,29 @@ async def ask_table(
 @router.post("/summaries/generate")
 async def summary(payload: SummaryRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     require_workspace_role(db, payload.workspace_id, user.id, "viewer")
-    result = await RAGService(db).answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=f"Create a {payload.style} summary of the selected documents. Include the important findings and cite every document-derived claim.")
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
+    rag = RAGService(db, task="summary")
+    started = time.perf_counter()
+    result = await rag.answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=f"Create a {payload.style} summary of the selected documents. Include the important findings and cite every document-derived claim.")
+    latency_ms = (time.perf_counter() - started) * 1000
+    record_usage(db, workspace_id=payload.workspace_id, user_id=user.id, metric="ai_messages", quantity=1, provider=rag.llm.name, model=rag.llm.model, metadata={"feature": "summary", "latency_ms": round(latency_ms, 2)})
+    db.commit()
     return {"content": result.answer, "citations": [c.__dict__ for c in result.citations]}
 
 
 @router.post("/compare")
 async def compare(payload: CompareRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     require_workspace_role(db, payload.workspace_id, user.id, "viewer")
+    require_monthly_capacity(db, payload.workspace_id, "ai_messages")
     question = "Compare these documents: identify similarities, differences, contradictions, shared topics, key metrics, and timeline differences."
     if payload.focus:
         question += f" Focus especially on: {payload.focus}."
-    result = await RAGService(db).answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=question)
+    rag = RAGService(db, task="comparison")
+    started = time.perf_counter()
+    result = await rag.answer(workspace_id=payload.workspace_id, document_ids=payload.document_ids, question=question)
+    latency_ms = (time.perf_counter() - started) * 1000
+    record_usage(db, workspace_id=payload.workspace_id, user_id=user.id, metric="ai_messages", quantity=1, provider=rag.llm.name, model=rag.llm.model, metadata={"feature": "comparison", "latency_ms": round(latency_ms, 2)})
+    db.commit()
     return {"content": result.answer, "citations": [c.__dict__ for c in result.citations]}
 
 

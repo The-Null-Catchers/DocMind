@@ -103,11 +103,21 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
             embeddings = payload.get("embeddings")
             if not isinstance(embeddings, list):
                 raise RuntimeError("Ollama embedding response is missing embeddings")
-            return [
+            vectors = [
                 [float(value) for value in vector]
                 for vector in embeddings
                 if isinstance(vector, list)
             ]
+            if len(vectors) != len(texts):
+                raise RuntimeError("Ollama embedding response count does not match input count")
+            wrong_dimensions = {len(vector) for vector in vectors if len(vector) != self.dimension}
+            if wrong_dimensions:
+                raise RuntimeError(
+                    "Ollama embedding dimension mismatch: "
+                    f"expected {self.dimension}, received {sorted(wrong_dimensions)}. "
+                    "Use an embedding model that matches EMBEDDING_DIMENSION."
+                )
+            return vectors
 
 
 class MockGroundedLLM(LLMProvider):
@@ -403,11 +413,28 @@ def get_embedding_provider() -> EmbeddingProvider:
     return HashEmbeddingProvider(s.embedding_dimension, s.embedding_model)
 
 
-def get_llm_provider() -> LLMProvider:
+FAST_LLM_TASKS = {"title", "classification", "query_rewrite", "selection_rewrite"}
+STRONG_LLM_TASKS = {"comparison", "structured_extraction", "deep_synthesis"}
+
+
+def get_llm_provider(task: str | None = None) -> LLMProvider:
     s = get_settings()
     provider = s.llm_provider.lower()
+    model = s.llm_model
+
+    if task in FAST_LLM_TASKS:
+        provider = (s.llm_fast_provider or provider).lower()
+        model = s.llm_fast_model or model
+    elif task in STRONG_LLM_TASKS:
+        provider = (s.llm_strong_provider or provider).lower()
+        model = s.llm_strong_model or model
+
     if provider == "ollama":
-        return OllamaLLM(s.ollama_base_url, s.ollama_chat_model)
+        routed_model = model if (
+            (task in FAST_LLM_TASKS and s.llm_fast_model)
+            or (task in STRONG_LLM_TASKS and s.llm_strong_model)
+        ) else s.ollama_chat_model
+        return OllamaLLM(s.ollama_base_url, routed_model)
     if provider == "openai":
         if not s.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is required for OpenAI")
@@ -415,7 +442,7 @@ def get_llm_provider() -> LLMProvider:
             name="openai",
             base_url="https://api.openai.com/v1",
             api_key=s.openai_api_key,
-            model=s.llm_model,
+            model=model,
         )
     if provider == "groq":
         if not s.groq_api_key:
@@ -424,16 +451,16 @@ def get_llm_provider() -> LLMProvider:
             name="groq",
             base_url="https://api.groq.com/openai/v1",
             api_key=s.groq_api_key,
-            model=s.llm_model,
+            model=model,
         )
     if provider == "anthropic":
         if not s.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is required for Anthropic")
-        return AnthropicLLM(s.anthropic_api_key, s.llm_model)
+        return AnthropicLLM(s.anthropic_api_key, model)
     if provider == "gemini":
         if not s.gemini_api_key:
             raise RuntimeError("GEMINI_API_KEY is required for Gemini")
-        return GeminiLLM(s.gemini_api_key, s.llm_model)
+        return GeminiLLM(s.gemini_api_key, model)
     return MockGroundedLLM()
 
 

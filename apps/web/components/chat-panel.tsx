@@ -128,19 +128,20 @@ export function ChatPanel({
           const rawData = line.slice(5).trim();
           if (!rawData) continue;
           const data = JSON.parse(rawData) as Record<string, unknown> | Citation[];
+          const currentEvent = eventName;
           setMessages((current) => {
             const next = [...current];
             const last = next[next.length - 1];
             if (!last || last.role !== "assistant") return current;
             const updated = { ...last, citations: [...last.citations] };
-            if (eventName === "token" && !Array.isArray(data)) updated.content += String(data.text ?? "");
-            if (eventName === "status" && !Array.isArray(data)) updated.status = String(data.status ?? "generating");
-            if (eventName === "citations" && Array.isArray(data)) updated.citations = data;
-            if (eventName === "done" && !Array.isArray(data)) {
+            if (currentEvent === "token" && !Array.isArray(data)) updated.content += String(data.text ?? "");
+            if (currentEvent === "status" && !Array.isArray(data)) updated.status = String(data.status ?? "generating");
+            if (currentEvent === "citations" && Array.isArray(data)) updated.citations = data;
+            if (currentEvent === "done" && !Array.isArray(data)) {
               updated.id = typeof data.message_id === "string" ? data.message_id : updated.id;
               updated.status = "complete";
             }
-            if (eventName === "error") updated.status = "failed";
+            if (currentEvent === "error") updated.status = "failed";
             next[next.length - 1] = updated;
             return next;
           });

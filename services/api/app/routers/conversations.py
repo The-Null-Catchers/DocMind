@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, select
@@ -12,8 +13,10 @@ from ..models import Conversation, ConversationDocument, Document, Message, Mess
 from ..schemas import ChatRequest, ConversationCreate
 from ..services.rag import RAGResult, RAGService
 from ..services.usage import record_usage
+from ..services.entitlements import require_monthly_capacity
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+logger = logging.getLogger(__name__)
 
 
 def _owned_conversation(db: Session, conversation_id: str, user: User) -> Conversation:
@@ -163,6 +166,7 @@ async def stream_message(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     conversation = _owned_conversation(db, conversation_id, user)
+    require_monthly_capacity(db, conversation.workspace_id, "ai_messages")
     existing_doc_ids = db.scalars(
         select(ConversationDocument.document_id).where(
             ConversationDocument.conversation_id == conversation_id
@@ -270,6 +274,10 @@ async def stream_message(
             )
             return
         except Exception:
+            logger.exception(
+                "Conversation generation failed",
+                extra={"conversation_id": conversation_id, "message_id": assistant_message.id},
+            )
             db.rollback()
             _persist_interrupted_message(
                 db,

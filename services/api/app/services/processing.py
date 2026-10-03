@@ -12,6 +12,7 @@ from .chunking import chunk_pages
 from .parsing import ParsedPage, parse_document
 from .storage import get_storage
 from .notifications import notify_user
+from .entitlements import require_monthly_capacity, record_document_processing_usage
 
 
 class DocumentProcessingService:
@@ -87,6 +88,22 @@ class DocumentProcessingService:
                 normalized_pages.append(ParsedPage(page.page_number, text, {**page.metadata, "ocr_used": ocr_used, "ocr_confidence": confidence}))
 
             self._mark_job(document_id, stage, "completed")
+            processed_pages = len(normalized_pages)
+            ocr_pages = sum(1 for page in normalized_pages if page.metadata.get("ocr_used"))
+            require_monthly_capacity(
+                self.db,
+                document.workspace_id,
+                "processed_pages",
+                quantity=processed_pages,
+                exclude_document_id=document.id,
+            )
+            require_monthly_capacity(
+                self.db,
+                document.workspace_id,
+                "ocr_pages",
+                quantity=ocr_pages,
+                exclude_document_id=document.id,
+            )
             # Idempotent replacement of derived data. Cascades remove embeddings before rebuild.
             self.db.execute(delete(DocumentPage).where(DocumentPage.document_id == document_id))
             self.db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document_id))
@@ -153,6 +170,13 @@ class DocumentProcessingService:
             stage = "indexing"
             self._mark_job(document_id, stage, "processing")
             self._mark_job(document_id, stage, "completed")
+            record_document_processing_usage(
+                self.db,
+                workspace_id=document.workspace_id,
+                document_id=document.id,
+                processed_pages=processed_pages,
+                ocr_pages=ocr_pages,
+            )
             self._set_status(document, "ready", 100)
             notify_user(
                 self.db,

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     ai_mode: str = "mock"
     llm_provider: str = "mock"
     llm_model: str = "mock-grounded-v1"
+    llm_fast_provider: str | None = None
+    llm_fast_model: str | None = None
+    llm_strong_provider: str | None = None
+    llm_strong_model: str | None = None
     embedding_provider: str = "hash"
     embedding_model: str = "hash-384-v1"
     embedding_dimension: int = 384
@@ -51,7 +55,7 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_chat_model: str = "qwen2.5:7b"
-    ollama_embed_model: str = "nomic-embed-text"
+    ollama_embed_model: str = "all-minilm"
     openai_api_key: str | None = None
     gemini_api_key: str | None = None
     anthropic_api_key: str | None = None
@@ -94,9 +98,14 @@ class Settings(BaseSettings):
             "anthropic": self.anthropic_api_key,
             "groq": self.groq_api_key,
         }
-        llm_key = required_llm_keys.get(self.llm_provider.lower())
-        if self.llm_provider.lower() in required_llm_keys and not llm_key:
-            raise ValueError(f"Credentials are required for LLM_PROVIDER={self.llm_provider}")
+        configured_llm_providers = {
+            self.llm_provider.lower(),
+            (self.llm_fast_provider or "").lower(),
+            (self.llm_strong_provider or "").lower(),
+        }
+        for provider in configured_llm_providers:
+            if provider in required_llm_keys and not required_llm_keys[provider]:
+                raise ValueError(f"Credentials are required for LLM provider {provider}")
 
         required_embedding_keys = {
             "openai": self.openai_api_key,

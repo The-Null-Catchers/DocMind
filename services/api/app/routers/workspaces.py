@@ -17,6 +17,7 @@ from ..security import hash_refresh_token, new_refresh_token
 from ..services.audit import write_audit
 from ..services.email import send_workspace_invitation_email
 from ..services.notifications import notify_user
+from ..services.entitlements import require_member_capacity
 
 router = APIRouter(tags=["workspaces"])
 
@@ -106,6 +107,7 @@ def _accept_invitation_record(
         )
     )
     if not member:
+        require_member_capacity(db, invitation.workspace_id)
         member = WorkspaceMember(
             workspace_id=invitation.workspace_id,
             user_id=user.id,
@@ -350,6 +352,7 @@ def create_invitation(
     ):
         raise HTTPException(status_code=409, detail="User is already a workspace member")
 
+    require_member_capacity(db, workspace_id)
     now = datetime.now(timezone.utc)
     pending = db.scalars(
         select(WorkspaceInvitation).where(
@@ -479,6 +482,7 @@ def accept_invitation(
         )
     )
     if not member:
+        require_member_capacity(db, invitation.workspace_id)
         member = WorkspaceMember(
             workspace_id=invitation.workspace_id,
             user_id=user.id,

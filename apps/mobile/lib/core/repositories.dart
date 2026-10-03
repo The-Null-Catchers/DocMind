@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../data/offline_cache.dart';
 import 'api_client.dart';
@@ -430,6 +432,67 @@ class StudyRepository {
   }
 }
 
+class ActivityRepository {
+  ActivityRepository(this._api);
+  final ApiClient _api;
+
+  Future<Map<String, dynamic>> notifications() async {
+    final response = await _api.dio.get('/notifications');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _api.dio.post('/notifications/$notificationId/read');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _api.dio.post('/notifications/read-all');
+  }
+
+  Future<List<Map<String, dynamic>>> invitations() async {
+    final response = await _api.dio.get('/workspace-invitations');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> acceptInvitation(String invitationId) async {
+    final response = await _api.dio.post(
+      '/workspace-invitations/$invitationId/accept',
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<void> rejectInvitation(String invitationId) async {
+    await _api.dio.post('/workspace-invitations/$invitationId/reject');
+  }
+
+  Future<List<Map<String, dynamic>>> exports(String workspaceId) async {
+    final response = await _api.dio.get(
+      '/exports',
+      queryParameters: {'workspace_id': workspaceId},
+    );
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<String> saveExport(String jobId, String filename) async {
+    final response = await _api.dio.get<List<int>>(
+      '/exports/$jobId/file',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = response.data ?? const <int>[];
+    final directory = await getApplicationDocumentsDirectory();
+    final safeName = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+    final file = File(
+      '${directory.path}/${safeName.isEmpty ? 'docmind-export' : safeName}',
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+}
+
 final workspaceRepositoryProvider = Provider(
   (ref) => WorkspaceRepository(
     ref.watch(apiClientProvider),
@@ -453,4 +516,8 @@ final studyRepositoryProvider = Provider(
     ref.watch(apiClientProvider),
     ref.watch(offlineCacheProvider),
   ),
+);
+
+final activityRepositoryProvider = Provider(
+  (ref) => ActivityRepository(ref.watch(apiClientProvider)),
 );

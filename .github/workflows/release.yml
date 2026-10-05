@@ -55,6 +55,9 @@ jobs:
         working-directory: apps/mobile
         run: flutter pub get
 
+      - name: Apply DocMind branding
+        run: python scripts/apply_mobile_branding.py
+
       - name: Analyze
         working-directory: apps/mobile
         run: flutter analyze --no-fatal-infos

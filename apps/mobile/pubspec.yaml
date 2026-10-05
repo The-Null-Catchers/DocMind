@@ -32,5 +32,11 @@ dev_dependencies:
   freezed: ^2.5.8
   json_serializable: ^6.9.3
   drift_dev: ^2.24.0
+  flutter_launcher_icons: ^0.14.4
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  image_path: .brand/docmind-icon.png
+  min_sdk_android: 21

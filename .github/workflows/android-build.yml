@@ -25,8 +25,24 @@ jobs:
         run: |
           flutter create . --platforms=android --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
+      - name: Apply DocMind branding
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text = text.replace('android:label="docmind"', 'android:label="DocMind"')
+          manifest.write_text(text)
+          PY
+          mkdir -p .brand
+          curl -fL --retry 3 --retry-delay 2 \
+            "https://raw.githubusercontent.com/The-Null-Catchers/brand-assets/main/projects/docmind/icons/icon-512.png" \
+            -o .brand/docmind-icon.png
       - name: Install dependencies
         run: flutter pub get
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
       - name: Analyze
         run: flutter analyze --no-fatal-infos
       - name: Test

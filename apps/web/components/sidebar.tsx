@@ -2,14 +2,16 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch, Search, FileDown } from "lucide-react";
+import { FileText, Home, MessageSquareText, NotebookPen, Brain, GraduationCap, Settings, Sparkles, FolderOpen, ScanSearch, Search, FileDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { api } from "@/lib/api";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import { useUI } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import { messages } from "@/lib/i18n";
+import { BrandMark } from "./brand-mark";
 
 type Workspace = { id: string; name: string; role: string };
 type Usage = { plan: string; usage: Record<string, number>; limits: Record<string, number> };
@@ -53,7 +55,13 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-[244px] shrink-0 flex-col border-e bg-panel p-3">
-      <div className="mb-5 flex items-center gap-3 px-2 py-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-panel"><BookOpen size={19}/></div><div><div className="font-semibold tracking-tight">DocMind</div><div className="text-[11px] text-ink/50">Knowledge workspace</div></div></div>
+      <div className="mb-5 flex items-center gap-3 px-2 py-2">
+        <BrandMark size={38} className="rounded-xl" />
+        <div>
+          <div className="font-semibold tracking-tight">{PRODUCT_NAME}</div>
+          <div className="text-[11px] text-ink/50">{PRODUCT_TAGLINE}</div>
+        </div>
+      </div>
       <label className="surface mb-4 block px-3 py-2 text-left text-sm">
         <span className="block text-[11px] text-ink/45">Workspace</span>
         {workspaces.isLoading ? <span className="mt-1 block text-ink/45">Loading…</span> : workspaces.data?.length ? (

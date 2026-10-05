@@ -68,6 +68,9 @@ jobs:
           flutter create . --platforms=android,ios --org com.docmind --project-name docmind --empty
           rm -f test/widget_test.dart
       - run: flutter pub get
+      - name: Apply DocMind branding
+        working-directory: ${{ github.workspace }}
+        run: python scripts/apply_mobile_branding.py
       - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze --no-fatal-infos

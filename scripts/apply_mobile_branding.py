@@ -72,11 +72,9 @@ def verify_branding() -> None:
     if f'android:label="{PRODUCT_NAME}"' not in manifest:
         raise SystemExit("DocMind application label was not applied")
 
-    generated = list(
-        (MOBILE_DIR / "android" / "app" / "src" / "main" / "res").glob(
-            "mipmap-*/launcher_icon.png"
-        )
-    )
+    resource_dir = MOBILE_DIR / "android" / "app" / "src" / "main" / "res"
+    generated = list(resource_dir.glob("mipmap-*/ic_launcher.png"))
+    generated.extend(resource_dir.glob("mipmap-*/launcher_icon.png"))
     if not generated:
         raise SystemExit("DocMind launcher icons were not generated")
 

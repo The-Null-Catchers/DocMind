@@ -87,7 +87,8 @@ jobs:
             apps/mobile/build/app/outputs/bundle/release/app-release.aab
 
   docker:
-    runs-on: ubuntu-latest
+    # Keep the pinned Playwright browser compatible with the runner OS.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Build API image

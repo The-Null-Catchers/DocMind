@@ -1,0 +1,41 @@
+{
+  "repository": "The-Null-Catchers/DocMind",
+  "defaultBranch": "main",
+  "baseSHA": "0f55097b9edc62aee83a3b2046b5ed4a60a769bb",
+  "backupTag": "cleanup-backup-2026-11-16",
+  "delete": [
+    {
+      "name": "chore/readme-final-polish-20260926",
+      "sha": "cbf0a8b0c1c7e9d4797ce34224003c357adbb1c5",
+      "reason": "equivalent"
+    },
+    {
+      "name": "chore/release-automation",
+      "sha": "a881b68a8cba9869c6e69413a22ab92942a5b491",
+      "reason": "equivalent"
+    },
+    {
+      "name": "fix/android-build-analyze-infos",
+      "sha": "fefb097ab5bc6576e4f17655cb6739ef0e037d02",
+      "reason": "equivalent"
+    },
+    {
+      "name": "fix/release-generated-widget-test",
+      "sha": "743f8c2a93c553335e9f30d2351e6c9dfeb02b47",
+      "reason": "equivalent"
+    },
+    {
+      "name": "branding/mobile-build-consistency",
+      "sha": "86612314a9fa51d2f34c965eab88ce50d385f1f6",
+      "reason": "tree-identical"
+    }
+  ],
+  "status": "Explicitly approved: archive before lease-guarded deletion",
+  "archiveParents": [
+    "cbf0a8b0c1c7e9d4797ce34224003c357adbb1c5",
+    "a881b68a8cba9869c6e69413a22ab92942a5b491",
+    "fefb097ab5bc6576e4f17655cb6739ef0e037d02",
+    "743f8c2a93c553335e9f30d2351e6c9dfeb02b47",
+    "86612314a9fa51d2f34c965eab88ce50d385f1f6"
+  ]
+}

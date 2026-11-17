@@ -31,6 +31,7 @@ def extraction_request(client, schema):
         {"type": "unknown-type"},
         {"type": "object", "properties": {"amount": {"type": "unknown-type"}}},
         {"type": "object", "required": 42},
+        {"type": "object", "properties": []},
     ],
 )
 def test_invalid_extraction_schema_returns_validation_error(client, schema):

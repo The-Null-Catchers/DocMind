@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import re
 from typing import Any
+
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 from referencing import Registry
 from referencing.exceptions import Unresolvable
 from sqlalchemy.orm import Session
+
 from .retrieval import RetrievalService
 
 
@@ -20,8 +22,6 @@ class StructuredExtractionService:
         except SchemaError as exc:
             raise ValueError("Invalid extraction schema: " + exc.message) from exc
         properties = schema.get("properties", {})
-        if not isinstance(properties, dict):
-            raise ValueError("Schema properties must be an object")
         hits = await RetrievalService(self.db).search(
             workspace_id=workspace_id,
             query=" ".join(properties.keys()) or "document information",

@@ -15,6 +15,7 @@
 - Grounded RAG with source IDs, citation validation, page-level deep links and unsupported-answer handling.
 - Streaming-compatible conversation API and persistent message/citation records.
 - Summaries, notes, collections, saved prompts, document comparison and schema-validated extraction.
+- Extraction schemas must be self-contained: local `$defs`/fragment references work, while unresolved external HTTP/file references return a validation error without being fetched.
 - Flashcards with SM-2 scheduling, quizzes and source-linked study content.
 - English + Arabic product architecture, RTL web switching and Arabic OCR configuration.
 - Privacy-conscious admin aggregates, usage/entitlement architecture, audit logs and session management.

@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import re
 from typing import Any
+
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
+from referencing import Registry
+from referencing.exceptions import Unresolvable
 from sqlalchemy.orm import Session
+
 from .retrieval import RetrievalService
 
 
@@ -12,10 +17,11 @@ class StructuredExtractionService:
         self.db = db
 
     async def extract(self, *, workspace_id: str, document_ids: list[str], schema: dict[str, Any]) -> dict[str, Any]:
-        Draft202012Validator.check_schema(schema)
+        try:
+            Draft202012Validator.check_schema(schema)
+        except SchemaError as exc:
+            raise ValueError("Invalid extraction schema: " + exc.message) from exc
         properties = schema.get("properties", {})
-        if not isinstance(properties, dict):
-            raise ValueError("Schema properties must be an object")
         hits = await RetrievalService(self.db).search(
             workspace_id=workspace_id,
             query=" ".join(properties.keys()) or "document information",
@@ -34,7 +40,7 @@ class StructuredExtractionService:
                     result[field] = None
                 elif expected == "string":
                     result[field] = ""
-                elif expected in {"number", "integer"}:
+                elif expected in ("number", "integer"):
                     result[field] = 0
                 elif expected == "array":
                     result[field] = []
@@ -53,7 +59,12 @@ class StructuredExtractionService:
                 result[field] = [part.strip() for part in re.split(r"[,;]", raw) if part.strip()]
             else:
                 result[field] = raw
-        errors = sorted(Draft202012Validator(schema).iter_errors(result), key=lambda e: list(e.path))
+        try:
+            # The caller supplies schemas, not permission to fetch URLs or local files.
+            validator = Draft202012Validator(schema, registry=Registry())
+            errors = sorted(validator.iter_errors(result), key=lambda e: list(e.path))
+        except Unresolvable as exc:
+            raise ValueError("Extraction schema references must resolve locally; use $defs") from exc
         if errors:
             raise ValueError("Extraction failed schema validation: " + "; ".join(error.message for error in errors[:5]))
         return {"data": result, "sources": [

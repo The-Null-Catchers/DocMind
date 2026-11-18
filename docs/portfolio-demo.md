@@ -21,3 +21,13 @@ The automated walkthrough uploads the scan through the library, waits for proces
 The Docker CI job uploads a browser recording, citation and table screenshots, and the validated JSON output as a workflow artifact tied to the tested revision. The run exercises real OCR and retrieval. The mock answer provider quotes retrieved text. The walkthrough measures OCR, retrieval and citation navigation with the supplied files.
 
 Newly processed documents index each page separately so citations can name the page that holds the quoted text. Reprocess older documents and ask the question again to refresh their page references.
+
+### Repeatable retrieval evaluation
+
+Run `python scripts/evaluate_rag.py` from the root with the API dependencies
+installed. The benchmark uses synthetic text, the hash embedder, and the
+grounded mock answer provider. Retrieval coverage and citation accuracy
+match both document and page. The Atlas fixture contains two pages under one
+document ID. The supported citation rate also counts answerable cases that
+returned no expected citation. The unsupported case requires an explicit abstention and zero
+citations. The results measure this fixture and provider configuration.

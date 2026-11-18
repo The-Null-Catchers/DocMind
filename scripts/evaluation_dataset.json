@@ -15,6 +15,13 @@
       "text": "مشروع Atlas مخصص لدراسة الوصول إلى المعرفة. الميزانية المعتمدة للمشروع هي 42000 شيكل، ويبدأ في يناير 2027."
     },
     {
+      "id": "atlas-milestones",
+      "workspace": "primary",
+      "document": "atlas-ar.txt",
+      "page": 3,
+      "text": "مشروع Atlas: تبدأ مرحلة التدريب في مارس 2027. ورشة العمل الختامية في أبريل 2027."
+    },
+    {
       "id": "north-policy",
       "workspace": "primary",
       "document": "north-policy.txt",
@@ -42,57 +49,82 @@
       "workspace": "primary",
       "question": "When is Project Cedar launching?",
       "mode": "hybrid",
-      "expected_documents": ["cedar"]
+      "expected_pages": [
+        "cedar"
+      ]
     },
     {
       "id": "arabic-question-english-source",
       "workspace": "primary",
       "question": "متى موعد إطلاق Project Cedar؟",
       "mode": "hybrid",
-      "expected_documents": ["cedar"]
+      "expected_pages": [
+        "cedar"
+      ]
     },
     {
       "id": "english-question-arabic-source",
       "workspace": "primary",
       "question": "What is the approved budget for Atlas?",
       "mode": "hybrid",
-      "expected_documents": ["atlas"]
+      "expected_pages": [
+        "atlas"
+      ]
     },
     {
       "id": "arabic",
       "workspace": "primary",
       "question": "ما هي الميزانية المعتمدة لمشروع Atlas؟",
       "mode": "hybrid",
-      "expected_documents": ["atlas"]
+      "expected_pages": [
+        "atlas"
+      ]
     },
     {
       "id": "mixed-language",
       "workspace": "primary",
       "question": "ما الذي يدرسه Project Cedar بخصوص hybrid retrieval quality؟",
       "mode": "hybrid",
-      "expected_documents": ["cedar"]
+      "expected_pages": [
+        "cedar"
+      ]
     },
     {
       "id": "exact-phrase",
       "workspace": "primary",
       "question": "hybrid retrieval quality",
       "mode": "exact",
-      "expected_documents": ["cedar"]
+      "expected_pages": [
+        "cedar"
+      ]
     },
     {
       "id": "contradictory-multi-document",
       "workspace": "primary",
       "question": "Compare the retention period in North policy and South policy.",
       "mode": "hybrid",
-      "expected_documents": ["north-policy", "south-policy"]
+      "expected_pages": [
+        "north-policy",
+        "south-policy"
+      ]
+    },
+    {
+      "id": "arabic-second-page",
+      "workspace": "primary",
+      "question": "متى تبدأ مرحلة التدريب في مشروع Atlas؟",
+      "mode": "hybrid",
+      "expected_pages": [
+        "atlas-milestones"
+      ]
     },
     {
       "id": "unsupported-no-sources",
       "workspace": "empty",
       "question": "What is the lunar banana compliance threshold?",
       "mode": "hybrid",
-      "expected_documents": [],
-      "expected_supported": false
+      "expected_pages": [],
+      "expected_supported": false,
+      "expected_answer_fragment": "couldn't find support"
     }
   ]
 }

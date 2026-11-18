@@ -93,6 +93,10 @@ docker compose --profile local-ai up -d --build
 
 See [`docs/local-ai.md`](docs/local-ai.md).
 
+## Bilingual portfolio demo
+
+Run the [synthetic demo](docs/portfolio-demo.md) to upload an Arabic scan, follow a page citation, compare a budget table, and verify extracted JSON.
+
 ## API development
 
 ```bash

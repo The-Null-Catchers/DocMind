@@ -54,8 +54,9 @@ test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async (
 
   await page.goto("/app/documents");
   await expect(page.getByRole("heading", { name: "Documents", exact: true, level: 1 })).toBeVisible();
-  await page.getByRole("combobox", { name: "Active workspace" }).selectOption(primary.id);
-  await expect(page.getByRole("combobox", { name: "Active workspace" })).toHaveValue(primary.id);
+  const selector = page.getByRole("combobox", { name: "Active workspace", exact: true }).first();
+  await selector.selectOption(primary.id);
+  await expect(selector).toHaveValue(primary.id);
   const pendingUpload = page.waitForResponse((response) =>
     response.url() === `${api}/documents/upload` && response.request().method() === "POST");
   await page.locator('input[type="file"]').setInputFiles(fixture("atlas-scan.pdf"));

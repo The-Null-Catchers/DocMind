@@ -34,7 +34,9 @@ test("critical grounded document workflow", async ({ page }) => {
 
   await page.goto("/app/documents");
   await expect(page.getByRole("heading", { name: "Documents", exact: true, level: 1 })).toBeVisible();
-  await page.getByRole("combobox", { name: "Active workspace" }).selectOption(workspace.id);
+  const selector = page.getByRole("combobox", { name: "Active workspace", exact: true }).first();
+  await selector.selectOption(workspace.id);
+  await expect(selector).toHaveValue(workspace.id);
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "cedar-source.pdf",

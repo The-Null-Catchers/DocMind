@@ -31,3 +31,9 @@ match both document and page. The Atlas fixture contains two pages under one
 document ID. The supported citation rate also counts answerable cases that
 returned no expected citation. The unsupported case requires an explicit abstention and zero
 citations. The results measure this fixture and provider configuration.
+
+The Atlas benchmark requires the budget question in English to cite page 2
+and the training question in Arabic to cite page 3. The lexical scorer
+recognizes a small Arabic–English vocabulary for budget and training
+and ignores common question words when other query terms are present.
+Exact-phrase search still matches the supplied phrase literally.

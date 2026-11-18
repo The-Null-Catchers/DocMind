@@ -37,15 +37,36 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True)) / denom
 
 
+_BILINGUAL_TERMS = (
+    ("budget", "ميزانية", "الميزانية"),
+    ("training", "تدريب", "التدريب"),
+)
+_TERM_VARIANTS = {term: variants for variants in _BILINGUAL_TERMS for term in variants}
+_QUESTION_WORDS = frozenset({"a", "an", "for", "is", "of", "the", "what", "when", "ما", "متى", "هي"})
+
+
+def _tokens(value: str) -> list[str]:
+    return re.findall(r"\w+", value.casefold())
+
+
+def _query_terms(query: str) -> list[str]:
+    terms = _tokens(query)
+    return [term for term in terms if term not in _QUESTION_WORDS] or terms
+
+
+def _canonical_terms(terms: list[str]) -> set[str]:
+    return {_TERM_VARIANTS.get(term, (term,))[0] for term in terms}
+
+
 def _keyword_score(query: str, value: str, exact_phrase: bool) -> float:
     q = re.sub(r"\s+", " ", query.casefold()).strip()
     haystack = re.sub(r"\s+", " ", value.casefold())
     if exact_phrase:
         return 1.0 if q in haystack else 0.0
-    terms = set(re.findall(r"[\w\u0600-\u06FF]+", q, flags=re.UNICODE))
+    terms = _canonical_terms(_query_terms(q))
     if not terms:
         return 0.0
-    text_terms = set(re.findall(r"[\w\u0600-\u06FF]+", haystack, flags=re.UNICODE))
+    text_terms = _canonical_terms(_tokens(haystack))
     return len(terms & text_terms) / len(terms)
 
 
@@ -158,11 +179,12 @@ class RetrievalService:
                 )
 
         if mode == "hybrid":
-            terms = list(
-                dict.fromkeys(
-                    re.findall(r"[\w\u0600-\u06FF]+", query.casefold(), flags=re.UNICODE)
-                )
-            )[:8]
+            query_terms = list(dict.fromkeys(_query_terms(query)))[:8]
+            terms = list(dict.fromkeys(
+                variant
+                for term in query_terms
+                for variant in _TERM_VARIANTS.get(term, (term,))
+            ))
             if terms:
                 lexical_statement = (
                     select(DocumentChunk, Document, Embedding)

@@ -64,6 +64,7 @@
     },
     {
       "id": "english-question-arabic-source",
+      "require_citation": true,
       "workspace": "primary",
       "question": "What is the approved budget for Atlas?",
       "mode": "hybrid",
@@ -110,6 +111,7 @@
     },
     {
       "id": "arabic-second-page",
+      "require_citation": true,
       "workspace": "primary",
       "question": "متى تبدأ مرحلة التدريب في مشروع Atlas؟",
       "mode": "hybrid",

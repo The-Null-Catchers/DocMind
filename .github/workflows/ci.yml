@@ -127,6 +127,16 @@ jobs:
           WEB_BASE_URL: http://localhost:3000
           API_BASE_URL: http://localhost:8000/api/v1
         run: npx playwright test
+      - name: Retain portfolio demo evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmind-portfolio-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/web/test-results/**/portfolio-*.png
+            apps/web/test-results/**/portfolio-*.json
+            apps/web/test-results/**/video.webm
+          if-no-files-found: error
+          retention-days: 14
       - name: Show Compose logs on failure
         if: failure()
         run: docker compose logs --no-color --tail=250

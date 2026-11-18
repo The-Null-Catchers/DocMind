@@ -13,10 +13,12 @@ async function json<T>(response: APIResponse): Promise<T> {
 test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   const api = process.env.API_BASE_URL ?? "http://localhost:8000/api/v1";
+  const email = `portfolio-${Date.now()}@example.com`;
+  const password = "correct-horse-battery-staple";
   const { access_token } = await json<{ access_token: string }>(await request.post(`${api}/auth/register`, {
     data: {
-      email: `portfolio-${Date.now()}@example.com`,
-      password: "correct-horse-battery-staple",
+      email,
+      password,
       display_name: "Portfolio demo",
       locale: "en",
     },
@@ -28,13 +30,10 @@ test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async (
   const empty = await createWorkspace("Empty project library");
 
   await page.goto("/login");
-  await page.evaluate(({ token, workspaceId }) => {
-    window.localStorage.setItem("docmind_access_token", token);
-    window.localStorage.setItem("docmind-workspace", JSON.stringify({
-      state: { activeWorkspaceId: workspaceId },
-      version: 0,
-    }));
-  }, { token: access_token, workspaceId: primary.id });
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/app(?:\/)?$/);
 
   const waitUntilReady = async (id: string) => {
     await expect.poll(async () => (
@@ -54,7 +53,9 @@ test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async (
   };
 
   await page.goto("/app/documents");
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Documents", exact: true, level: 1 })).toBeVisible();
+  await page.getByRole("combobox", { name: "Active workspace" }).selectOption(primary.id);
+  await expect(page.getByRole("combobox", { name: "Active workspace" })).toHaveValue(primary.id);
   const pendingUpload = page.waitForResponse((response) =>
     response.url() === `${api}/documents/upload` && response.request().method() === "POST");
   await page.locator('input[type="file"]').setInputFiles(fixture("atlas-scan.pdf"));

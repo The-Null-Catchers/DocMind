@@ -32,18 +32,9 @@ test("critical grounded document workflow", async ({ page }) => {
     return response.json() as Promise<{ id: string }>;
   }, { apiBase });
 
-  await page.evaluate((workspaceId) => {
-    window.localStorage.setItem(
-      "docmind-workspace",
-      JSON.stringify({
-        state: { activeWorkspaceId: workspaceId },
-        version: 0,
-      }),
-    );
-  }, workspace.id);
-
   await page.goto("/app/documents");
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Documents", exact: true, level: 1 })).toBeVisible();
+  await page.getByRole("combobox", { name: "Active workspace" }).selectOption(workspace.id);
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "cedar-source.pdf",

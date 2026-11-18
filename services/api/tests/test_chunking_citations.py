@@ -5,15 +5,17 @@ from app.services.retrieval import RetrievalHit
 from app.services.rag import _CitationDeltaSanitizer
 
 
-def test_chunking_preserves_page_ranges_and_sections():
+def test_chunking_keeps_short_adjacent_pages_separate():
     pages = [
         ParsedPage(1, "INTRODUCTION:\n\nDocMind keeps source metadata. This is a grounded paragraph."),
         ParsedPage(2, "METHODS:\n\nThe system chunks by structure and page boundaries. Citations remain linked."),
     ]
     chunks = chunk_pages(pages, target_tokens=100, overlap_tokens=20)
-    assert chunks
-    assert all(c.page_start >= 1 and c.page_end <= 2 for c in chunks)
-    assert any(c.section_title for c in chunks)
+    assert [(c.page_start, c.page_end) for c in chunks] == [(1, 1), (2, 2)]
+    assert [c.section_title for c in chunks] == ["INTRODUCTION:", "METHODS:"]
+    assert "grounded paragraph" in chunks[0].text
+    assert "grounded paragraph" not in chunks[1].text
+    assert "Citations remain linked" in chunks[1].text
 
 
 def test_citations_only_resolve_real_retrieval_hits():

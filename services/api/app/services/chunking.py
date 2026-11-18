@@ -36,57 +36,60 @@ def chunk_pages(pages: list[ParsedPage], target_tokens: int = 650, overlap_token
     if target_tokens < 100 or overlap_tokens < 0 or overlap_tokens >= target_tokens:
         raise ValueError("Invalid chunk configuration")
     chunks: list[ChunkDraft] = []
-    current: list[tuple[str, int]] = []
+    current: list[str] = []
     current_tokens = 0
     current_section: str | None = None
 
-    def flush() -> None:
+    def flush(page_number: int, *, keep_overlap: bool = True) -> None:
         nonlocal current, current_tokens
         if not current:
             return
-        text = "\n\n".join(part for part, _page in current).strip()
-        pages_seen = [page for _part, page in current]
+        text = "\n\n".join(current)
         chunks.append(ChunkDraft(
             text=text,
             chunk_index=len(chunks),
-            page_start=min(pages_seen),
-            page_end=max(pages_seen),
+            page_start=page_number,
+            page_end=page_number,
             section_title=current_section,
             token_count=estimate_tokens(text),
             metadata={"paragraph_count": len(current)},
         ))
         # Preserve a paragraph-aware overlap window.
-        overlap: list[tuple[str, int]] = []
+        if not keep_overlap or not overlap_tokens:
+            current = []
+            current_tokens = 0
+            return
+        overlap: list[str] = []
         total = 0
         for item in reversed(current):
-            cost = estimate_tokens(item[0])
+            cost = estimate_tokens(item)
             if overlap and total + cost > overlap_tokens:
                 break
             overlap.append(item)
             total += cost
-        current = list(reversed(overlap)) if overlap_tokens else []
-        current_tokens = sum(estimate_tokens(part) for part, _ in current)
+        current = list(reversed(overlap))
+        current_tokens = total
 
     for page in pages:
         for paragraph in _paragraphs(page.text):
             if _is_heading(paragraph):
                 if current and current_tokens >= max(100, target_tokens // 2):
-                    flush()
+                    flush(page.page_number)
                 current_section = paragraph[:500]
             cost = estimate_tokens(paragraph)
             if current and current_tokens + cost > target_tokens:
-                flush()
+                flush(page.page_number)
             if cost > target_tokens:
                 words = paragraph.split()
                 step = max(50, target_tokens - overlap_tokens)
                 for start in range(0, len(words), step):
                     piece = " ".join(words[start:start + target_tokens])
                     if piece:
-                        current.append((piece, page.page_number))
+                        current.append(piece)
                         current_tokens += estimate_tokens(piece)
-                        flush()
+                        flush(page.page_number)
                 continue
-            current.append((paragraph, page.page_number))
+            current.append(paragraph)
             current_tokens += cost
-    flush()
+        flush(page.page_number, keep_overlap=False)
     return chunks

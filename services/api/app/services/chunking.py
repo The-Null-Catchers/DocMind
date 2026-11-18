@@ -22,7 +22,7 @@ def estimate_tokens(text: str) -> int:
 
 
 def _paragraphs(text: str) -> list[str]:
-    blocks = [re.sub(r"\s+", " ", p).strip() for p in re.split(r"\n\s*\n|(?<=\.)\s+(?=[A-Z\u0600-\u06FF])", text)]
+    blocks = [re.sub(r"[^\S\n]+", " ", p).strip() for p in re.split(r"\n\s*\n|(?<=\.)\s+(?=[A-Z\u0600-\u06FF])", text)]
     return [p for p in blocks if p]
 
 
@@ -80,14 +80,13 @@ def chunk_pages(pages: list[ParsedPage], target_tokens: int = 650, overlap_token
             if current and current_tokens + cost > target_tokens:
                 flush(page.page_number)
             if cost > target_tokens:
-                words = paragraph.split()
+                words = list(re.finditer(r"\S+", paragraph))
                 step = max(50, target_tokens - overlap_tokens)
                 for start in range(0, len(words), step):
-                    piece = " ".join(words[start:start + target_tokens])
-                    if piece:
-                        current.append(piece)
-                        current_tokens += estimate_tokens(piece)
-                        flush(page.page_number)
+                    end = min(start + target_tokens, len(words))
+                    piece = paragraph[words[start].start():words[end - 1].end()]
+                    current.append(piece)
+                    flush(page.page_number, keep_overlap=False)
                 continue
             current.append(paragraph)
             current_tokens += cost

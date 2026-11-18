@@ -18,6 +18,12 @@ def test_chunking_keeps_short_adjacent_pages_separate():
     assert "Citations remain linked" in chunks[1].text
 
 
+def test_chunking_preserves_field_lines_for_extraction():
+    page = ParsedPage(1, "project: Atlas\napproved_budget_ils: 42000")
+    [chunk] = chunk_pages([page])
+    assert chunk.text == page.text
+
+
 def test_citations_only_resolve_real_retrieval_hits():
     hit = RetrievalHit("chunk-1", "doc-1", "Paper.pdf", 7, "Results", "Retention improved by 12 percent.", 0.9, 0.8, 1.0)
     _context, mapping = build_source_context([hit])

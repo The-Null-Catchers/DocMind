@@ -1,56 +1,54 @@
-# DocMind — خطة البورتفيليو
+# DocMind portfolio roadmap
 
-مرجع التقييم الأساسي: 17 نوفمبر 2026. تحديث نشر الخطة داخل المستودع: 18 نوفمبر 2026.
+Baseline reviewed on November 17, 2026. Repository roadmap published on November 18, 2026.
 
-الخطة خاصة بهذا المستودع، ومستخلصة من خطة Null Catchers المشتركة. وصف «الموجود الموثق» يعكس المراجعة بتاريخها؛ تحقّق من الكود ووثائق الحالة الحالية قبل إنشاء مهمة جديدة. لا تعِد تنفيذ ميزة موجودة، ولا تعتبر وجود تعريف CI دليلًا على نجاح تشغيله.
+This roadmap applies to this repository and follows the shared Null Catchers portfolio plan. Verify the documented state against the current code and runs before starting work.
 
-**تقدير شريحة العرض الأولى:** 25–40 ساعة. التقدير تخطيطي لمطور يعرف المشروع، ويستثني انتظار حسابات المتاجر والمراجعات الخارجية وتجهيز بيئة الهدف. لا يغطي جميع بنود P2.
+**Estimated initial demo effort** 25–40 hours for a developer familiar with the project. The estimate excludes external reviews, store accounts, target environment setup, and later milestones.
 
-## الأولويات الخاصة بالمشروع
+## Project priorities
 
-**الموجود الموثق:** ingestion وOCR عربي/إنجليزي، hybrid retrieval، محادثة بمراجع صفحات، استخراج منظم، أدوات دراسة، وعزل workspaces. التشغيل الافتراضي يستخدم مزودين حتميين بلا مفاتيح مدفوعة؛ هذا ليس دليلًا على جودة نموذج فعلي.
+**Documented state** The project supports Arabic and English OCR, hybrid retrieval, page citations, structured extraction, study tools, and workspace isolation. The default deterministic providers require no paid credentials. Real model quality requires separate evaluation.
 
-**P0 — نسخة العرض** أغلق فجوة الاستشهاد بين اللغات في العينة وثبّت أدلة مسار OCR والاستخراج لإصدار يمكن إعادة تجربته.
+**P0 — Demo** Close the cross-language citation gap and version the OCR and extraction evidence.
 
-**P1 — جودة قابلة للقياس:** وسّع harness التقييم الموجود إلى مجموعة أسئلة ذات إجابات ومراجع معروفة؛ سجل جودة الاسترجاع وصحة الإحالة والامتناع والزمن. اختبر مزودًا فعليًا واحدًا متاحًا، مع فصل نتائجه عن mock؛ استخدم Ollama إن كان العتاد مناسبًا بدل اشتراط خدمة مدفوعة.
+**P1 — Validation and depth** Expand the benchmark with known answers and pages. Measure retrieval, citation accuracy, abstention, and latency. Compare a real provider with the mock when available, including Ollama if the hardware supports it.
 
-**P2 — لاحقًا:** reranker وتجربة مقارنة المستندات أو bounding boxes بعد معرفة موضع الإخفاق في التقييم، لا لمجرد توسيع قائمة المزايا.
+**P2 — Later** Use evaluation failures to decide whether to add reranking, document comparison, or bounding boxes.
 
-**معيار الإنجاز:** بيانات وأسئلة قابلة للإعادة، صفحة مصدر صحيحة لكل جواب معتمد، اختبار عدم تسرب بين workspace A وB، وقياسات مرتبطة بإعداد المزود والإصدار.
+**Acceptance criteria** Evidence includes reproducible data and questions, valid citations, a workspace isolation check, and the provider configuration and revision for all metrics.
 
-**الديمو:** سؤال عربي عن مستند ممسوح → مصدر الصفحة → مقارنة جدول → جواب «غير موجود» لسؤال خارج المستندات. **الأدلة:** [README](https://github.com/The-Null-Catchers/DocMind/blob/main/README.md)، [RAG](https://github.com/The-Null-Catchers/DocMind/blob/main/docs/rag.md).
+**Demo scenario** Ask an Arabic question about a scanned document → open its page citation → compare a table → ask an unsupported question. [README](https://github.com/The-Null-Catchers/DocMind/blob/main/README.md), [RAG](https://github.com/The-Null-Catchers/DocMind/blob/main/docs/rag.md).
 
-يتحقق تقييم RAG في CI من مطابقة المستند والصفحة، ويختبر الامتناع الصريح عن إجابة بلا مصادر. مجموعة التقييم اصطناعية وتستخدم مزود الإجابات التجريبي.
+CI evaluates document and page matches and explicit abstention on synthetic fixtures with the mock provider.
 
-## الدفعة التالية
+## Next milestones
 
-**ما ثبت حتى الآن**
+[PR #31](https://github.com/The-Null-Catchers/DocMind/pull/31) added Arabic OCR, tables, JSON extraction, and a workspace isolation check. In [PR #32](https://github.com/The-Null-Catchers/DocMind/pull/32), all eight answerable cases retrieved the expected pages, seven cited the expected page, and an empty-workspace question produced an abstention. [Browser evidence](https://github.com/The-Null-Catchers/DocMind/actions/runs/44315521680).
 
-[PR #31](https://github.com/The-Null-Catchers/DocMind/pull/31) أضاف مسار OCR عربي وجدول واستخراج JSON وعزل مساحة العمل. في [PR #32](https://github.com/The-Null-Catchers/DocMind/pull/32) نجحت حالات الاسترجاع الثماني القابلة للإجابة، واستشهد مزود الإجابات التجريبي بالصفحة المتوقعة في سبع منها. نجحت حالة الامتناع في مساحة بلا مصادر. [أدلة المتصفح](https://github.com/The-Null-Catchers/DocMind/actions/runs/44315521680).
+1. [ ] Check page ranking for the English budget question against the Arabic Atlas document. Keep fixture text and provider constant, confirm the budget cites page 2, and confirm the training question still cites page 3.
+2. [ ] Test an unsupported question in a populated workspace with unrelated documents. Require an explicit abstention, zero citations, and continued workspace isolation.
+3. [ ] Link evaluation and recording evidence to a release. Record the provider, fixture data, and reproduction steps, and settle licensing before distribution.
 
-1. [ ] افحص ترتيب الصفحتين في حالة سؤال الميزانية بالإنجليزية وإجابته في مستند Atlas العربي. يُقبل البند عندما يستشهد الجواب بالصفحة 2 للميزانية، ويظل سؤال التدريب يشير إلى الصفحة 3، مع تثبيت نصوص العينة والمزوّد عند المقارنة.
-2. [ ] أضف سؤالًا غير مدعوم في مساحة تحتوي مستندات غير ذات صلة. يُقبل البند عندما يصرّح الجواب بغياب الدليل ويعيد صفر استشهادات، مع استمرار اختبار عزل مساحات العمل.
-3. [ ] اربط نتائج التقييم والتسجيل بإصدار، واحسم الترخيص قبل توزيع الحزمة. يُقبل البند عندما يوضح وصف العرض المزود والبيانات المستخدمة ويتضمن تعليمات تكرار المسار.
+## Portfolio acceptance checklist
 
-## بوابة قبول نسخة البورتفيليو
+- [ ] Another person can reproduce the primary workflow from a clean checkout using the README and test credentials or fixtures.
+- [ ] The demo tells one complete story with a defined user, problem, and saved result.
+- [ ] Tests cover the main flow, an important failure, and access boundaries when multiple accounts are involved.
+- [ ] Demo data is labeled synthetic and reproducible. Review screenshots and recordings for secrets and customer data.
+- [ ] Include four to six real screenshots where appropriate, a 60–120 second recording, and working links. Identify the revision used for capture.
+- [ ] The README describes implemented capabilities, setup, architecture, limits, tests, and the demo.
+- [ ] A short case study explains two engineering decisions, a considered alternative, and how the system handles an actual failure.
+- [ ] Release evidence records the commit SHA, CI, prerequisites, and limits. Performance data includes workload, hardware, and method.
+- [ ] Licensing and contributor attribution are settled before distribution. Choose the license for each repository individually.
 
-- [ ] يستطيع شخص آخر تشغيل المسار الرئيسي من checkout نظيف، باتباع README، دون أسرار شخصية.
-- [ ] توجد قصة واحدة مكتملة: مستخدم محدد، مشكلة محددة، ومسار بداية إلى نتيجة محفوظة.
-- [ ] ينجح اختبار للمسار الرئيسي وحالة فشل مهمة، وتُختبر حدود الصلاحيات حيث توجد حسابات متعددة.
-- [ ] توجد بيانات عرض اصطناعية معلنة، قابلة لإعادة الإنشاء؛ ولا توجد بيانات عملاء أو أسرار في اللقطات.
-- [ ] توجد 4–6 لقطات حقيقية أو العدد الملائم للأداة، وفيديو 60–120 ثانية، وروابط تعمل. تُلتقط الأدلة من إصدار معروف.
-- [ ] README يوضح المزايا الفعلية، طريقة التشغيل، الرسم المعماري، القيود، وروابط الاختبارات والديمو.
-- [ ] Case study قصيرة تشرح قرارين هندسيين، بديلًا جرى استبعاده ولماذا، وفشلًا حقيقيًا وكيف يعالجه النظام.
-- [ ] صفحة Release تسجل SHA وCI والمتطلبات والقيود. لا تُنشر أرقام أداء دون workload وعتاد وطريقة قياس.
-- [ ] حُسمت سياسة الترخيص ونسب المساهمات قبل التوزيع؛ لا نختار ترخيصًا تلقائيًا لجميع المستودعات.
+A hosted demo is optional. Code execution, server administration, and secret management can be demonstrated through a recording and a reproducible isolated environment. Keep public demo access scoped to the activities it needs.
 
-الديمو المستضاف مفيد وليس شرطًا لكل أداة. أدوات تنفيذ الكود وإدارة الخوادم والأسرار يمكن عرضها بفيديو وبيئة معزولة وتجربة محلية قابلة للإعادة. لا تفتح تنفيذًا عامًا غير محدود لمجرد وجود رابط بورتفيليو.
+## Implementation and follow-up
 
-## التنفيذ والمتابعة
-
-- حوّل P0 إلى مهام صغيرة، لكل منها سلوك متوقع ومعيار قبول واختبار مناسب.
-- ابدأ بتأكيد الموجود؛ عدّل هذه الخطة عندما يغلق بند بدليل مرتبط بcommit أو PR.
-- سجّل مصدر بيانات الديمو، والـSHA الذي التُقطت منه الأدلة، وحدود التجربة الفعلية.
-- راجع الفرق النهائي وانتظر نجاح الفحوص المطلوبة لنفس SHA قبل الدمج، مع احترام حماية الفرع.
-- إذا كان التعديل وثائق فقط ولا يوجد فحص ينطبق عليه، سجّل التحقق من محتواها وروابطها؛ لا تسجل اختبارات تشغيل لم تُنفّذ.
-- لا تُنشر أرقام أداء أو ادعاءات أمان أو جاهزية إنتاج بلا دليل مناسب.
+- Break P0 into tasks with expected behavior, acceptance criteria, and a suitable test.
+- Verify existing functionality first. Update this plan when evidence tied to a commit or PR closes a milestone.
+- Record the fixture source, the revision used for evidence, and the tested limits.
+- Review the final diff and verify required checks for its exact SHA before merging. Follow branch protection.
+- For documentation-only changes with no applicable workflow, verify content and links and record the checks actually performed.
+- Tie performance, security, and readiness claims to supporting evidence.

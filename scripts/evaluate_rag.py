@@ -59,26 +59,34 @@ def main() -> None:
         workspaces[key] = workspace
 
     seeded: dict[str, tuple[Document, DocumentChunk]] = {}
+    documents_by_key: dict[tuple[str, str], Document] = {}
+    chunk_counts: dict[tuple[str, str], int] = {}
     for index, row in enumerate(documents):
-        workspace = workspaces[row["workspace"]]
-        document = Document(
-            workspace_id=workspace.id,
-            uploaded_by_id=user.id,
-            original_filename=row["document"],
-            title=row["document"],
-            object_key=f"eval/{index}",
-            mime_type="text/plain",
-            file_size=len(row["text"].encode("utf-8")),
-            content_hash=f"{index:064x}",
-            status="ready",
-            processing_progress=100,
-        )
-        db.add(document)
-        db.flush()
+        key = (row["workspace"], row["document"])
+        document = documents_by_key.get(key)
+        if document is None:
+            document = Document(
+                workspace_id=workspaces[row["workspace"]].id,
+                uploaded_by_id=user.id,
+                original_filename=row["document"],
+                title=row["document"],
+                object_key=f"eval/{index}",
+                mime_type="text/plain",
+                file_size=0,
+                content_hash=f"{index:064x}",
+                status="ready",
+                processing_progress=100,
+            )
+            db.add(document)
+            db.flush()
+            documents_by_key[key] = document
+        document.file_size += len(row["text"].encode("utf-8"))
+        chunk_index = chunk_counts.get(key, 0)
+        chunk_counts[key] = chunk_index + 1
         chunk = DocumentChunk(
-            workspace_id=workspace.id,
+            workspace_id=document.workspace_id,
             document_id=document.id,
-            chunk_index=0,
+            chunk_index=chunk_index,
             text=row["text"],
             page_start=row["page"],
             page_end=row["page"],
@@ -112,16 +120,17 @@ def main() -> None:
     retrieved_source_count = 0
     valid_citations = 0
     total_citations = 0
+    supported_cases_with_expected_citation = 0
     unsupported_cases = 0
-    unsupported_with_citations = 0
+    unsupported_without_abstention = 0
 
     for case in cases:
         workspace = workspaces[case["workspace"]]
-        expected_ids = case.get("expected_documents", [])
-        expected_document_ids = {
-            seeded[item][0].id for item in expected_ids
+        expected_ids = case["expected_pages"]
+        expected_sources = {
+            (seeded[item][0].id, seeded[item][1].page_start) for item in expected_ids
         }
-        expected_source_count += len(expected_document_ids)
+        expected_source_count += len(expected_sources)
 
         hits = asyncio.run(
             RetrievalService(db, embedder).search(
@@ -132,16 +141,16 @@ def main() -> None:
                 limit=8,
             )
         )
-        hit_ids = [hit.document_id for hit in hits]
+        hit_sources = [(hit.document_id, hit.page_number) for hit in hits]
 
-        if expected_document_ids:
+        if expected_sources:
             retrieval_cases += 1
-            found = expected_document_ids & set(hit_ids)
+            found = expected_sources & set(hit_sources)
             retrieved_source_count += len(found)
-            if found == expected_document_ids:
+            if found == expected_sources:
                 retrieval_passes += 1
             first_rank = next(
-                (rank for rank, hit_id in enumerate(hit_ids, start=1) if hit_id in expected_document_ids),
+                (rank for rank, source in enumerate(hit_sources, start=1) if source in expected_sources),
                 None,
             )
             if first_rank:
@@ -155,13 +164,24 @@ def main() -> None:
         )
         for citation in rag_result.citations:
             total_citations += 1
-            if citation.document_id in expected_document_ids:
+            if (citation.document_id, citation.page_number) in expected_sources:
                 valid_citations += 1
 
         if case.get("expected_supported", True) is False:
             unsupported_cases += 1
-            if rag_result.citations:
-                unsupported_with_citations += 1
+            fragment = case["expected_answer_fragment"]
+            if rag_result.citations or fragment.casefold() not in rag_result.answer.casefold():
+                unsupported_without_abstention += 1
+
+        if expected_sources:
+            cited_sources = {
+                (citation.document_id, citation.page_number)
+                for citation in rag_result.citations
+            }
+            if expected_sources & cited_sources:
+                supported_cases_with_expected_citation += 1
+            else:
+                print(f"missing_expected_citation={case['id']}")
 
     primary = workspaces["primary"]
     canary_hits = asyncio.run(
@@ -181,12 +201,14 @@ def main() -> None:
 
     retrieval_accuracy = _ratio(retrieval_passes, retrieval_cases)
     citation_accuracy = _ratio(valid_citations, total_citations)
-    unsupported_claim_rate = _ratio(unsupported_with_citations, unsupported_cases)
+    supported_citation_rate = _ratio(supported_cases_with_expected_citation, retrieval_cases)
+    unsupported_claim_rate = _ratio(unsupported_without_abstention, unsupported_cases)
     mrr = _ratio(reciprocal_rank_total, retrieval_cases)
     source_coverage = _ratio(retrieved_source_count, expected_source_count)
 
     print(f"retrieval_accuracy={retrieval_accuracy:.3f}")
     print(f"citation_accuracy={citation_accuracy:.3f}")
+    print(f"supported_citation_rate={supported_citation_rate:.3f}")
     print(f"unsupported_claim_rate={unsupported_claim_rate:.3f}")
     print(f"mrr={mrr:.3f}")
     print(f"source_coverage={source_coverage:.3f}")
@@ -196,6 +218,7 @@ def main() -> None:
     thresholds = {
         "retrieval_accuracy": float(os.getenv("RAG_EVAL_MIN_RETRIEVAL", "0.70")),
         "citation_accuracy": float(os.getenv("RAG_EVAL_MIN_CITATION", "0.70")),
+        "supported_citation_rate": float(os.getenv("RAG_EVAL_MIN_SUPPORTED_CITATION", "0.70")),
         "unsupported_claim_rate": float(os.getenv("RAG_EVAL_MAX_UNSUPPORTED", "0.25")),
         "source_coverage": float(os.getenv("RAG_EVAL_MIN_SOURCE_COVERAGE", "0.70")),
     }
@@ -207,6 +230,11 @@ def main() -> None:
     if citation_accuracy < thresholds["citation_accuracy"]:
         failures.append(
             f"citation_accuracy {citation_accuracy:.3f} < {thresholds['citation_accuracy']:.3f}"
+        )
+    if supported_citation_rate < thresholds["supported_citation_rate"]:
+        failures.append(
+            f"supported_citation_rate {supported_citation_rate:.3f} < "
+            f"{thresholds['supported_citation_rate']:.3f}"
         )
     if unsupported_claim_rate > thresholds["unsupported_claim_rate"]:
         failures.append(

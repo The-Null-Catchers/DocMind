@@ -18,6 +18,6 @@ The scenario creates a disposable account and workspaces. Use a local or test in
 
 The automated walkthrough uploads the scan through the library, waits for processing, checks that OCR recovered Arabic text and the value `42000`, asks an Arabic question, and follows the citation to page 2. It then verifies the CSV rows, checks JSON extraction of the Atlas record against the expected values and page reference, rejects a cross-workspace document selection, and confirms a question in an empty workspace yields an unsupported answer with no citations.
 
-The Docker CI job uploads successful citation and table screenshots as a workflow artifact tied to the tested revision. The run exercises real OCR and retrieval. The mock answer provider quotes retrieved text. The walkthrough measures OCR, retrieval and citation navigation with the supplied files.
+The Docker CI job uploads a browser recording, citation and table screenshots, and the validated JSON output as a workflow artifact tied to the tested revision. The run exercises real OCR and retrieval. The mock answer provider quotes retrieved text. The walkthrough measures OCR, retrieval and citation navigation with the supplied files.
 
 Newly processed documents index each page separately so citations can name the page that holds the quoted text. Reprocess older documents and ask the question again to refresh their page references.

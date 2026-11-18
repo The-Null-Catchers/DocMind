@@ -1,5 +1,7 @@
 import { expect, test, type APIResponse } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+
+test.use({ video: "on" });
 
 const fixture = (name: string) => `e2e/fixtures/${name}`;
 
@@ -100,6 +102,8 @@ test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async (
   );
   expect(extraction.data).toEqual({ project: "Atlas", approved_budget_ils: 42000 });
   expect(extraction.sources).toContainEqual(expect.objectContaining({ document_id: recordId, page_number: 1 }));
+
+  await writeFile(testInfo.outputPath("portfolio-extraction.json"), JSON.stringify(extraction, null, 2) + "\n");
 
   const isolated = await request.post(`${api}/conversations`, {
     headers,

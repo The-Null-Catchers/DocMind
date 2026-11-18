@@ -37,3 +37,9 @@ and the training question in Arabic to cite page 3. The lexical scorer
 recognizes a small Arabic–English vocabulary for budget and training
 and ignores common question words when other query terms are present.
 Exact-phrase search still matches the supplied phrase literally.
+
+The benchmark checks abstention in both an empty workspace and a populated
+workspace with unrelated documents. When the deterministic mock uses hash
+embeddings, source selection requires positive lexical overlap. This protects
+against hash collisions. A shared term alone does not establish that a claim
+is supported, and other provider combinations keep their existing behavior.

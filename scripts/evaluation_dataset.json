@@ -120,6 +120,15 @@
       ]
     },
     {
+      "id": "unsupported-in-populated-workspace",
+      "workspace": "primary",
+      "question": "What is the lunar banana compliance threshold?",
+      "mode": "hybrid",
+      "expected_pages": [],
+      "expected_supported": false,
+      "expected_answer_fragment": "couldn't find support"
+    },
+    {
       "id": "unsupported-no-sources",
       "workspace": "empty",
       "question": "What is the lunar banana compliance threshold?",

@@ -7,7 +7,14 @@ from typing import AsyncIterator
 from sqlalchemy.orm import Session
 
 from ..ai.prompts import get_prompt
-from ..ai.providers import LLMProvider, RerankerProvider, get_llm_provider, get_reranker_provider
+from ..ai.providers import (
+    HashEmbeddingProvider,
+    LLMProvider,
+    MockGroundedLLM,
+    RerankerProvider,
+    get_llm_provider,
+    get_reranker_provider,
+)
 from .citations import Citation, build_source_context, resolve_citations, strip_unknown_citations
 from .retrieval import RetrievalHit, RetrievalService
 
@@ -76,6 +83,9 @@ class RAGService:
             document_ids=document_ids,
             limit=16,
         )
+        if isinstance(self.llm, MockGroundedLLM) and isinstance(self.retrieval.embedder, HashEmbeddingProvider):
+            # Hash collisions alone cannot support an answer in the deterministic demo.
+            hits = [hit for hit in hits if hit.keyword_score > 0]
         if hits:
             rerank_scores = await self.reranker.rerank(question, [h.text for h in hits])
             hits = [

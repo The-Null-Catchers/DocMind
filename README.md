@@ -260,3 +260,7 @@ The core product is implemented. Deployment-specific integrations that can be ad
 ## License
 
 Add the desired open-source or source-available license before redistribution.
+
+## Portfolio roadmap
+
+See the [repository-specific portfolio roadmap](PORTFOLIO_ROADMAP.md) for priorities, acceptance criteria, demo scope, and release evidence. This complements the existing implementation and status documentation.

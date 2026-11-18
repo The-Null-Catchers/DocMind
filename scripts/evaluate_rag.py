@@ -123,6 +123,7 @@ def main() -> None:
     supported_cases_with_expected_citation = 0
     unsupported_cases = 0
     unsupported_without_abstention = 0
+    failed_required_cases: list[str] = []
 
     for case in cases:
         workspace = workspaces[case["workspace"]]
@@ -182,6 +183,8 @@ def main() -> None:
                 supported_cases_with_expected_citation += 1
             else:
                 print(f"missing_expected_citation={case['id']}")
+                if case.get("require_citation", False):
+                    failed_required_cases.append(case["id"])
 
     primary = workspaces["primary"]
     canary_hits = asyncio.run(
@@ -222,7 +225,9 @@ def main() -> None:
         "unsupported_claim_rate": float(os.getenv("RAG_EVAL_MAX_UNSUPPORTED", "0.25")),
         "source_coverage": float(os.getenv("RAG_EVAL_MIN_SOURCE_COVERAGE", "0.70")),
     }
-    failures: list[str] = []
+    failures = [
+        f"required citation missing for {case_id}" for case_id in failed_required_cases
+    ]
     if retrieval_accuracy < thresholds["retrieval_accuracy"]:
         failures.append(
             f"retrieval_accuracy {retrieval_accuracy:.3f} < {thresholds['retrieval_accuracy']:.3f}"

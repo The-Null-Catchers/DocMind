@@ -173,6 +173,7 @@ def main() -> None:
             fragment = case["expected_answer_fragment"]
             if rag_result.citations or fragment.casefold() not in rag_result.answer.casefold():
                 unsupported_without_abstention += 1
+                failed_required_cases.append(f"explicit abstention with zero citations missing for {case['id']}")
 
         if expected_sources:
             cited_sources = {
@@ -181,10 +182,14 @@ def main() -> None:
             }
             if expected_sources & cited_sources:
                 supported_cases_with_expected_citation += 1
+                if case.get("require_citation", False) and cited_sources != expected_sources:
+                    failed_required_cases.append(f"unexpected citation for {case['id']}")
             else:
                 print(f"missing_expected_citation={case['id']}")
                 if case.get("require_citation", False):
-                    failed_required_cases.append(case["id"])
+                    failed_required_cases.append(f"required citation missing for {case['id']}")
+            if case.get("require_citation", False) and cited_sources == expected_sources:
+                print(f"required_citation_verified={case['id']}")
 
     primary = workspaces["primary"]
     canary_hits = asyncio.run(
@@ -225,9 +230,7 @@ def main() -> None:
         "unsupported_claim_rate": float(os.getenv("RAG_EVAL_MAX_UNSUPPORTED", "0.25")),
         "source_coverage": float(os.getenv("RAG_EVAL_MIN_SOURCE_COVERAGE", "0.70")),
     }
-    failures = [
-        f"required citation missing for {case_id}" for case_id in failed_required_cases
-    ]
+    failures = failed_required_cases.copy()
     if retrieval_accuracy < thresholds["retrieval_accuracy"]:
         failures.append(
             f"retrieval_accuracy {retrieval_accuracy:.3f} < {thresholds['retrieval_accuracy']:.3f}"

@@ -112,20 +112,26 @@ test("synthetic portfolio demo: Arabic scan, citations, table and JSON", async (
     data: { workspace_id: empty.id, title: "Wrong workspace", document_ids: [scanId] },
   });
   expect(isolated.status()).toBe(400);
-  const conversation = await json<{ id: string }>(await request.post(`${api}/conversations`, {
-    headers,
-    data: { workspace_id: empty.id, title: "Unsupported question", document_ids: [] },
-  }));
-  const stream = await request.post(`${api}/conversations/${conversation.id}/messages/stream`, {
-    headers,
-    data: { message: "What is the Atlas budget?" },
-  });
-  expect(stream.ok()).toBeTruthy();
-  const messages = await json<unknown[]>(await request.get(`${api}/conversations/${conversation.id}/messages`, { headers }));
-  expect(messages.at(-1)).toMatchObject({
-    role: "assistant",
-    status: "complete",
-    content: "I couldn't find support for that in the selected documents.",
-    citations: [],
-  });
+  const assertAbstention = async (workspaceId: string, documentIds: string[], question: string) => {
+    const conversation = await json<{ id: string }>(await request.post(`${api}/conversations`, {
+      headers,
+      data: { workspace_id: workspaceId, title: "Unsupported question", document_ids: documentIds },
+    }));
+    const stream = await request.post(`${api}/conversations/${conversation.id}/messages/stream`, {
+      headers,
+      data: { message: question },
+    });
+    expect(stream.ok()).toBeTruthy();
+    const messages = await json<unknown[]>(
+      await request.get(`${api}/conversations/${conversation.id}/messages`, { headers }),
+    );
+    expect(messages.at(-1)).toMatchObject({
+      role: "assistant",
+      status: "complete",
+      content: "I couldn't find support for that in the selected documents.",
+      citations: [],
+    });
+  };
+  await assertAbstention(primary.id, [scanId, tableId, recordId], "What is the lunar banana compliance threshold?");
+  await assertAbstention(empty.id, [], "What is the Atlas budget?");
 });

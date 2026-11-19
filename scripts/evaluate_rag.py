@@ -123,6 +123,7 @@ def main() -> None:
     supported_cases_with_expected_citation = 0
     unsupported_cases = 0
     unsupported_without_abstention = 0
+    failed_required_abstentions: list[str] = []
     failed_required_cases: list[str] = []
 
     for case in cases:
@@ -173,6 +174,8 @@ def main() -> None:
             fragment = case["expected_answer_fragment"]
             if rag_result.citations or fragment.casefold() not in rag_result.answer.casefold():
                 unsupported_without_abstention += 1
+                if case.get("require_abstention", False):
+                    failed_required_abstentions.append(case["id"])
 
         if expected_sources:
             cited_sources = {
@@ -227,6 +230,8 @@ def main() -> None:
     }
     failures = [
         f"required citation missing for {case_id}" for case_id in failed_required_cases
+    ] + [
+        f"required abstention missing for {case_id}" for case_id in failed_required_abstentions
     ]
     if retrieval_accuracy < thresholds["retrieval_accuracy"]:
         failures.append(

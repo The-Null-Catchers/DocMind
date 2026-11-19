@@ -126,7 +126,8 @@
       "mode": "hybrid",
       "expected_pages": [],
       "expected_supported": false,
-      "expected_answer_fragment": "couldn't find support"
+      "expected_answer_fragment": "couldn't find support",
+      "require_abstention": true
     },
     {
       "id": "unsupported-no-sources",

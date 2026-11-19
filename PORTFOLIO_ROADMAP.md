@@ -24,10 +24,12 @@ CI evaluates document and page matches and explicit abstention on synthetic fixt
 
 ## Next milestones
 
+Verified checkpoint: [PR #38](https://github.com/The-Null-Catchers/DocMind/pull/38) and [PR #39](https://github.com/The-Null-Catchers/DocMind/pull/39) are merged. [CI run 44443076958](https://github.com/The-Null-Catchers/DocMind/actions/runs/44443076958) completed successfully and published the `docmind-portfolio-44443076958-1` evidence artifact. The release-linking and distribution-licensing milestone remains open.
+
 [PR #31](https://github.com/The-Null-Catchers/DocMind/pull/31) added Arabic OCR, tables, JSON extraction, and a workspace isolation check. In [PR #32](https://github.com/The-Null-Catchers/DocMind/pull/32), all eight answerable cases retrieved the expected pages, seven cited the expected page, and an empty-workspace question produced an abstention. [Browser evidence](https://github.com/The-Null-Catchers/DocMind/actions/runs/44315521680).
 
-1. [ ] Check page ranking for the English budget question against the Arabic Atlas document. Keep fixture text and provider constant, confirm the budget cites page 2, and confirm the training question still cites page 3.
-2. [ ] Test an unsupported question in a populated workspace with unrelated documents. Require an explicit abstention, zero citations, and continued workspace isolation.
+1. [x] Check page ranking for the English budget question against the Arabic Atlas document. Keep fixture text and provider constant, confirm the budget cites page 2, and confirm the training question still cites page 3. Verified by [PR #39](https://github.com/The-Null-Catchers/DocMind/pull/39); CI passed on the tested revision.
+2. [x] Test an unsupported question in a populated workspace with unrelated documents. Require an explicit abstention, zero citations, and continued workspace isolation. The mandatory evaluation gate is in [PR #38](https://github.com/The-Null-Catchers/DocMind/pull/38), and the browser regression is in [PR #39](https://github.com/The-Null-Catchers/DocMind/pull/39).
 3. [ ] Link evaluation and recording evidence to a release. Record the provider, fixture data, and reproduction steps, and settle licensing before distribution.
 
 ## Portfolio acceptance checklist
